@@ -4,16 +4,13 @@
   "private": true,
   "scripts": {
     "build": "nuxt build",
-    "build:cf": "npm run prepare && nuxt build",
     "dev": "nuxt dev",
     "generate": "nuxt generate",
     "preview": "nuxt preview",
-    "prepare": "nuxt prepare",
-    "postinstall": "node -e \"if(!process.env.CF_PAGES) require('child_process').execSync('nuxt prepare', {stdio:'inherit'})\""
+    "postinstall": "nuxt prepare"
   },
   "dependencies": {
     "@nuxt/content": "^2.13.0",
-    "@nuxt/eslint": "^0.7.2",
     "@nuxt/fonts": "^0.10.3",
     "@nuxt/icon": "^1.10.3",
     "@nuxt/image": "^1.8.1",
@@ -41,6 +38,7 @@
     "@iconify-json/logos": "^1.2.10",
     "@iconify-json/lucide": "^1.2.82",
     "@iconify-json/radix-icons": "^1.2.1",
+    "@nuxt/eslint": "^0.7.2",
     "@types/uuid": "^10.0.0",
     "typescript": "^5.7.2"
   }
