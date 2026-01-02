@@ -1,0 +1,139 @@
+import { useSupabase } from './supabase'
+
+// File info for batch uploads
+export interface ShareFile {
+    name: string
+    path: string
+    size: number
+}
+
+export interface ShareLink {
+    id: string
+    fileId: string           // Legacy single file or folder path for batch
+    fileName: string         // Legacy or batch name
+    filePath: string         // Legacy single file path or folder path
+    files: ShareFile[]       // Array of files for batch upload
+    accountId: string
+    accountName: string
+    createdAt: string
+    expiresAt: string
+    downloadCount: number
+}
+
+// Generate simple unique ID
+function generateId(): string {
+    return Date.now().toString(36) + Math.random().toString(36).substring(2, 8)
+}
+
+// Database helpers
+export async function createShare(data: Omit<ShareLink, 'id' | 'createdAt' | 'downloadCount'>): Promise<ShareLink> {
+    const supabase = useSupabase()
+    const id = generateId()
+
+    const shareData = {
+        id,
+        file_id: data.fileId,
+        file_name: data.fileName,
+        file_path: data.filePath,
+        files: data.files || [],  // Store as JSONB
+        account_id: data.accountId,
+        account_name: data.accountName,
+        expires_at: data.expiresAt,
+        download_count: 0
+    }
+
+    const { error } = await supabase
+        .from('shares')
+        .insert(shareData)
+
+    if (error) throw error
+
+    return {
+        ...data,
+        id,
+        files: data.files || [],
+        createdAt: new Date().toISOString(),
+        downloadCount: 0
+    }
+}
+
+export async function getSharesByAccount(accountId: string): Promise<ShareLink[]> {
+    const supabase = useSupabase()
+
+    const { data, error } = await supabase
+        .from('shares')
+        .select('*')
+        .eq('account_id', accountId)
+
+    if (error) throw error
+    if (!data) return []
+
+    return data.map(item => ({
+        id: item.id,
+        fileId: item.file_id,
+        fileName: item.file_name,
+        filePath: item.file_path,
+        files: item.files || [],
+        accountId: item.account_id,
+        accountName: item.account_name,
+        createdAt: item.created_at,
+        expiresAt: item.expires_at,
+        downloadCount: item.download_count
+    }))
+}
+
+export async function getShareById(id: string): Promise<ShareLink | null> {
+    const supabase = useSupabase()
+
+    const { data, error } = await supabase
+        .from('shares')
+        .select('*')
+        .eq('id', id)
+        .single()
+
+    if (error || !data) return null
+
+    return {
+        id: data.id,
+        fileId: data.file_id,
+        fileName: data.file_name,
+        filePath: data.file_path,
+        files: data.files || [],
+        accountId: data.account_id,
+        accountName: data.account_name,
+        createdAt: data.created_at,
+        expiresAt: data.expires_at,
+        downloadCount: data.download_count
+    }
+}
+
+export async function incrementDownloadCount(id: string): Promise<void> {
+    const supabase = useSupabase()
+
+    const { data } = await supabase.from('shares').select('download_count').eq('id', id).single()
+    if (data) {
+        await supabase.from('shares').update({ download_count: data.download_count + 1 }).eq('id', id)
+    }
+}
+
+export async function deleteShare(id: string): Promise<boolean> {
+    const supabase = useSupabase()
+
+    const { error } = await supabase
+        .from('shares')
+        .delete()
+        .eq('id', id)
+
+    return !error
+}
+
+export async function cleanExpiredShares(): Promise<void> {
+    const supabase = useSupabase()
+    const now = new Date().toISOString()
+
+    await supabase
+        .from('shares')
+        .delete()
+        .lt('expires_at', now)
+}
+
