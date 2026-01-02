@@ -56,10 +56,10 @@
          <div class="px-2 mb-2 text-xs font-semibold text-muted-foreground tracking-wider uppercase">Storage</div>
          <nav class="space-y-1">
             <NuxtLink 
-              to="/" 
+              to="/files" 
               :class="[
                 'flex items-center gap-3 px-3 py-2 text-sm font-medium rounded-md transition-colors',
-                route.path === '/' ? 'bg-accent text-accent-foreground' : 'text-muted-foreground hover:bg-muted hover:text-foreground'
+                route.path.startsWith('/files') ? 'bg-accent text-accent-foreground' : 'text-muted-foreground hover:bg-muted hover:text-foreground'
               ]"
             >
                <Icon name="lucide:hard-drive" class="h-4 w-4" />
