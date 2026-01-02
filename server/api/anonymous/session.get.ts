@@ -57,7 +57,6 @@ export default defineEventHandler(async (event) => {
         const accountsWithStorage = await Promise.all(accounts.map(async (account) => {
             try {
                 const accessToken = await getAccessTokenForAccount(account)
-                const accessToken = await getAccessTokenForAccount(account)
                 const dbx = createDropboxClient(accessToken)
                 const space = await dbx.usersGetSpaceUsage()
 
