@@ -10,6 +10,9 @@ export default defineEventHandler(async (event) => {
 
         console.log(`[Files API] Fetching files for account: ${account.name} (${account.id}), path: ${path || 'root'}`)
 
+        setHeader(event, 'X-Active-Account-Name', account.name)
+        setHeader(event, 'X-Active-Account-Id', account.id)
+
         const response = await dbx.filesListFolder({
             path: path,
             include_media_info: true,
