@@ -1,5 +1,5 @@
 import { getAccounts, type DropboxAccount } from '../../utils/accounts'
-import { Dropbox } from 'dropbox'
+import { createDropboxClient } from '../../utils/dropbox'
 
 // Cache for access tokens per account
 const tokenCache = new Map<string, { token: string; expiry: number }>()

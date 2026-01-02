@@ -1,7 +1,7 @@
 
 import { getShareById } from '../../../utils/shares'
 import { getAccounts, type DropboxAccount } from '../../../utils/accounts'
-import { Dropbox } from 'dropbox'
+import { createDropboxClient } from '../../../utils/dropbox'
 
 // Token cache (reused from stream.get.ts pattern, ideally should be a shared utility)
 const tokenCache = new Map<string, { token: string; expiry: number }>()

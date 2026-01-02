@@ -1,6 +1,6 @@
 
 import { addAccount, getAccounts, setActiveAccount, getAccountById } from '../../utils/accounts'
-import { Dropbox } from 'dropbox'
+import { createDropboxClient } from '../../utils/dropbox'
 
 export default defineEventHandler(async (event) => {
     const body = await readBody(event)

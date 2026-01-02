@@ -1,6 +1,6 @@
 import { getShareById, incrementDownloadCount } from '../../../utils/shares'
 import { getAccounts, type DropboxAccount } from '../../../utils/accounts'
-import { Dropbox } from 'dropbox'
+import { createDropboxClient } from '../../../utils/dropbox'
 
 // Token cache
 const tokenCache = new Map<string, { token: string; expiry: number }>()
