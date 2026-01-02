@@ -58,7 +58,9 @@ export function useDropboxServer() {
             }
 
             const accessToken = await getAccessTokenForAccount(account)
-            return new Dropbox({ accessToken, fetch: fetch })
+            // Wrap fetch to preserve 'this' context (Cloudflare requirement)
+            const customFetch = (url: string, init: any) => fetch(url, init)
+            return new Dropbox({ accessToken, fetch: customFetch })
         },
 
         async getActiveClient() {
@@ -68,7 +70,9 @@ export function useDropboxServer() {
             }
 
             const accessToken = await getAccessTokenForAccount(account)
-            return { client: new Dropbox({ accessToken, fetch: fetch }), account }
+            // Wrap fetch to preserve 'this' context (Cloudflare requirement)
+            const customFetch = (url: string, init: any) => fetch(url, init)
+            return { client: new Dropbox({ accessToken, fetch: customFetch }), account }
         }
     }
 }
