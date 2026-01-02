@@ -12,6 +12,7 @@ export default defineEventHandler(async (event) => {
 
         setHeader(event, 'X-Active-Account-Name', account.name)
         setHeader(event, 'X-Active-Account-Id', account.id)
+        setHeader(event, 'X-Dropbox-Real-Account-Id', account.account_id) // The actual ID from Dropbox
 
         const response = await dbx.filesListFolder({
             path: path,

@@ -30,5 +30,10 @@ export default defineNuxtConfig({
     // Supabase (server-side)
     supabaseUrl: process.env.SUPABASE_URL || '',
     supabaseServiceKey: process.env.SUPABASE_SERVICE_KEY || '',
+
+    public: {
+      dropboxAppKey: process.env.DROPBOX_APP_KEY || '',
+    }
   },
 })
+  }

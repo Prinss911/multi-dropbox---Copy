@@ -1,9 +1,15 @@
+
 import { addAccount, getAccounts, setActiveAccount, getAccountById } from '../../utils/accounts'
 import { Dropbox } from 'dropbox'
 
 export default defineEventHandler(async (event) => {
     const body = await readBody(event)
     const { code, name, appKey, appSecret } = body
+    const config = useRuntimeConfig()
+
+    // Use provided credentials OR fallback to server-side config
+    const useAppKey = appKey || config.public.dropboxAppKey || config.dropboxAppKey
+    const useAppSecret = appSecret || config.dropboxAppSecret
 
     if (!code) {
         throw createError({
@@ -12,10 +18,10 @@ export default defineEventHandler(async (event) => {
         })
     }
 
-    if (!appKey || !appSecret) {
+    if (!useAppKey || !useAppSecret) {
         throw createError({
             statusCode: 400,
-            statusMessage: 'App Key and App Secret are required'
+            statusMessage: 'App Key and App Secret are required (and not configured in .env)'
         })
     }
 
@@ -34,8 +40,8 @@ export default defineEventHandler(async (event) => {
             body: new URLSearchParams({
                 code,
                 grant_type: 'authorization_code',
-                client_id: appKey,
-                client_secret: appSecret,
+                client_id: useAppKey,
+                client_secret: useAppSecret,
             }).toString(),
         })
 
@@ -62,8 +68,8 @@ export default defineEventHandler(async (event) => {
             email: accountInfo.result.email,
             account_id: tokenResponse.account_id,
             refresh_token: tokenResponse.refresh_token,
-            app_key: appKey,
-            app_secret: appSecret
+            app_key: useAppKey,
+            app_secret: useAppSecret
         })
 
         if (!newAccount) {
