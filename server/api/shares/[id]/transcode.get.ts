@@ -74,28 +74,43 @@ export default defineEventHandler(async (event) => {
 
         // 1. Get or Create Public Shared Link
         let publicUrl = ''
-        try {
-            // first check if one exists
-            const listShared = await dbx.sharingListSharedLinks({
-                path: file.path,
-                direct_only: true
-            })
 
-            if (listShared.result.links.length > 0) {
-                publicUrl = listShared.result.links[0].url
-            } else {
-                // create one
-                const created = await dbx.sharingCreateSharedLinkWithSettings({ path: file.path })
-                publicUrl = created.result.url
-            }
+        // Validate path format - Dropbox requires paths starting with /
+        let filePath = file.path
+        if (!filePath.startsWith('/')) {
+            filePath = '/' + filePath
+        }
+
+        console.log('[Transcode] Attempting to share path:', filePath, 'with account:', account.id)
+
+        try {
+            // Directly try to create a shared link (avoids needing sharing.read scope)
+            console.log('[Transcode] Creating shared link...')
+            const created = await dbx.sharingCreateSharedLinkWithSettings({ path: filePath })
+            publicUrl = created.result.url
+            console.log('[Transcode] Created new link:', publicUrl)
         } catch (e: any) {
-            console.error('Dropbox sharing error:', e)
-            // If we hit "shared_link_already_exists" but list didn't find it (rare?), try to handle or just fail
-            if (e.error?.['.tag'] === 'shared_link_already_exists') {
-                // Fallback: try listing again without direct_only? or assuming it exists.
-                // For now, let's assume one of the above works.
+            console.error('Dropbox sharing error:', JSON.stringify(e, null, 2))
+
+            // Handle "shared_link_already_exists" - extract URL from error
+            if (e.error?.error?.['.tag'] === 'shared_link_already_exists') {
+                console.log('[Transcode] Link already exists, extracting from error...')
+
+                // The existing link metadata is in e.error.error.shared_link_already_exists.metadata
+                const existingMeta = e.error?.error?.shared_link_already_exists?.metadata
+                if (existingMeta?.url) {
+                    publicUrl = existingMeta.url
+                    console.log('[Transcode] Got existing link from error:', publicUrl)
+                } else {
+                    // Fallback: try to get it from different error structure
+                    console.error('[Transcode] Could not extract URL from error metadata:', JSON.stringify(e.error, null, 2))
+                    throw createError({ statusCode: 502, statusMessage: 'Shared link exists but could not extract URL' })
+                }
+            } else {
+                // Log full error object for debugging
+                console.error('Dropbox API Full Error:', JSON.stringify(e, null, 2))
+                throw createError({ statusCode: 502, statusMessage: 'Failed to generate public link: ' + (e.error?.error_summary || e.message || 'Unknown error') })
             }
-            throw createError({ statusCode: 502, statusMessage: 'Failed to generate public link for transcoding' })
         }
 
         console.log('Using public URL for scraping:', publicUrl)
