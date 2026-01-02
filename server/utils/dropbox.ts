@@ -56,7 +56,7 @@ export const createDropboxClient = (accessToken: string) => {
     return new Dropbox({ accessToken, fetch: customFetch })
 }
 
-export const useDropbox = () => {
+export const useDropboxServer = () => {
     return {
         async getClientForAccount(accountId: string) {
             const account = await getAccountById(accountId)
