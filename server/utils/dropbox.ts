@@ -49,7 +49,14 @@ async function getAccessTokenForAccount(account: DropboxAccount): Promise<string
     return response.access_token
 }
 
-export function useDropboxServer() {
+// Helper to create Dropbox client with Cloudflare-compatible fetch
+export const createDropboxClient = (accessToken: string) => {
+    // Wrap fetch to preserve 'this' context and use globalThis (Cloudflare requirement)
+    const customFetch = (url: any, init: any) => globalThis.fetch(url, init)
+    return new Dropbox({ accessToken, fetch: customFetch })
+}
+
+export const useDropbox = () => {
     return {
         async getClientForAccount(accountId: string) {
             const account = await getAccountById(accountId)
@@ -58,9 +65,7 @@ export function useDropboxServer() {
             }
 
             const accessToken = await getAccessTokenForAccount(account)
-            // Wrap fetch to preserve 'this' context (Cloudflare requirement)
-            const customFetch = (url: any, init: any) => globalThis.fetch(url, init)
-            return new Dropbox({ accessToken, fetch: customFetch })
+            return createDropboxClient(accessToken)
         },
 
         async getActiveClient() {
@@ -70,9 +75,7 @@ export function useDropboxServer() {
             }
 
             const accessToken = await getAccessTokenForAccount(account)
-            // Wrap fetch to preserve 'this' context (Cloudflare requirement)
-            const customFetch = (url: any, init: any) => globalThis.fetch(url, init)
-            return { client: new Dropbox({ accessToken, fetch: customFetch }), account }
+            return { client: createDropboxClient(accessToken), account }
         }
     }
 }

@@ -91,7 +91,7 @@ export default defineEventHandler(async (event) => {
         }
 
         const accessToken = await getAccessTokenForAccount(account)
-        const dbx = new Dropbox({ accessToken })
+        const dbx = createDropboxClient(accessToken)
 
         // Get temporary link from Dropbox
         const linkResponse = await dbx.filesGetTemporaryLink({ path: file.path })

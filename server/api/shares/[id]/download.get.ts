@@ -83,7 +83,7 @@ export default defineEventHandler(async (event) => {
 
         // Get access token
         const accessToken = await getAccessTokenForAccount(account)
-        const dbx = new Dropbox({ accessToken })
+        const dbx = createDropboxClient(accessToken)
 
         // Determine which file(s) to return
         const files = share.files || []

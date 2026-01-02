@@ -40,7 +40,7 @@ export default defineEventHandler(async (event) => {
         })
 
         // Get account info using the access token
-        const dbx = new Dropbox({ accessToken: tokenResponse.access_token })
+        const dbx = createDropboxClient(tokenResponse.access_token)
         const accountInfo = await dbx.usersGetCurrentAccount()
 
         // Check if account already exists

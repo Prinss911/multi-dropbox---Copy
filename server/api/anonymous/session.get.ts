@@ -57,9 +57,8 @@ export default defineEventHandler(async (event) => {
         const accountsWithStorage = await Promise.all(accounts.map(async (account) => {
             try {
                 const accessToken = await getAccessTokenForAccount(account)
-                // Fix fetch for Cloudflare - use globalThis.fetch explicitly
-                const customFetch = (url: any, init: any) => globalThis.fetch(url, init)
-                const dbx = new Dropbox({ accessToken, fetch: customFetch })
+                const accessToken = await getAccessTokenForAccount(account)
+                const dbx = createDropboxClient(accessToken)
                 const space = await dbx.usersGetSpaceUsage()
 
                 let allocated = 0

@@ -70,7 +70,7 @@ export default defineEventHandler(async (event) => {
         if (!account) throw createError({ statusCode: 404, statusMessage: 'Account not found' })
 
         const accessToken = await getAccessTokenForAccount(account)
-        const dbx = new Dropbox({ accessToken })
+        const dbx = createDropboxClient(accessToken)
 
         // 1. Get or Create Public Shared Link
         let publicUrl = ''

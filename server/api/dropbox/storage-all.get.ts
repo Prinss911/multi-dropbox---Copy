@@ -54,7 +54,7 @@ export default defineEventHandler(async (event) => {
         const storagePromises = accounts.map(async (account) => {
             try {
                 const accessToken = await getAccessTokenForAccount(account)
-                const dbx = new Dropbox({ accessToken })
+                const dbx = createDropboxClient(accessToken)
                 const response = await dbx.usersGetSpaceUsage()
 
                 const used = response.result.used
