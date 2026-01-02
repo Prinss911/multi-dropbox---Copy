@@ -160,21 +160,35 @@ export async function deleteAccount(id: string): Promise<boolean> {
 // Set active account
 export async function setActiveAccount(id: string): Promise<boolean> {
     const supabase = getSupabase()
+    console.log(`[Accounts] Switching active account to ${id}`)
 
-    await supabase
+    // 1. Reset all to inactive
+    const { error: resetError } = await supabase
         .from('dropbox_accounts')
         .update({ is_active: false })
-        .neq('id', id)
+        .neq('id', '0') // Apply to all rows (assuming id != '0') - safer than empty string
 
-    const { error } = await supabase
+    if (resetError) {
+        console.error('[Accounts] Error resetting accounts:', resetError)
+    }
+
+    // 2. Set target to active
+    const { error, data } = await supabase
         .from('dropbox_accounts')
         .update({ is_active: true })
         .eq('id', id)
+        .select()
 
     if (error) {
-        console.error('Error setting active account:', error)
+        console.error('[Accounts] Error setting active account:', error)
         return false
     }
 
+    if (!data || data.length === 0) {
+        console.error('[Accounts] No account found with ID:', id)
+        return false
+    }
+
+    console.log(`[Accounts] Successfully switched to ${data[0].name} (${data[0].id})`)
     return true
 }
