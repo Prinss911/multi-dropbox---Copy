@@ -176,80 +176,37 @@
       </div>
     </Teleport>
 
-    <!-- Add Account Modal -->
+    <!-- Add Account Modal (OAuth Flow) -->
     <Teleport to="body">
       <div 
         v-if="showAddModal" 
         class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm"
       >
-        <div class="bg-card w-full max-w-md rounded-lg shadow-lg border p-6">
+        <div class="bg-card w-full max-w-sm rounded-lg shadow-lg border p-6">
           <div class="flex items-center gap-3 mb-4">
             <div class="p-2 rounded-full bg-primary/10">
-              <Icon name="lucide:plus-circle" class="h-5 w-5 text-primary" />
+              <Icon name="simple-icons:dropbox" class="h-5 w-5 text-primary" />
             </div>
-            <h3 class="font-semibold text-lg">Add Dropbox Account</h3>
+            <h3 class="font-semibold text-lg">Connect Dropbox</h3>
           </div>
           
-          <div class="space-y-4">
-            <div>
-              <label class="text-sm font-medium">Account Name</label>
-              <input 
-                v-model="newAccount.name"
-                type="text"
-                placeholder="e.g., My Dropbox"
-                class="mt-1 w-full px-3 py-2 bg-background border rounded-md text-sm"
-              />
-            </div>
-            <div>
-              <label class="text-sm font-medium">App Key</label>
-              <input 
-                v-model="newAccount.appKey"
-                type="text"
-                placeholder="Your Dropbox App Key"
-                class="mt-1 w-full px-3 py-2 bg-background border rounded-md text-sm font-mono"
-              />
-            </div>
-            <div>
-              <label class="text-sm font-medium">App Secret</label>
-              <input 
-                v-model="newAccount.appSecret"
-                type="password"
-                placeholder="Your Dropbox App Secret"
-                class="mt-1 w-full px-3 py-2 bg-background border rounded-md text-sm font-mono"
-              />
-            </div>
-            <div>
-              <label class="text-sm font-medium">Refresh Token</label>
-              <input 
-                v-model="newAccount.refreshToken"
-                type="password"
-                placeholder="OAuth Refresh Token"
-                class="mt-1 w-full px-3 py-2 bg-background border rounded-md text-sm font-mono"
-              />
-            </div>
-            
-            <p class="text-xs text-muted-foreground">
-              You need a Dropbox app with offline access. 
-              <a href="https://www.dropbox.com/developers/apps" target="_blank" class="text-primary hover:underline">
-                Create app →
-              </a>
-            </p>
-          </div>
+          <p class="text-muted-foreground mb-6">
+            Click the button below to connect your Dropbox account. You'll be redirected to Dropbox to authorize access.
+          </p>
 
-          <div class="flex gap-3 justify-end mt-6">
+          <div class="flex flex-col gap-3">
+            <a 
+              href="/api/auth/dropbox/authorize"
+              class="flex items-center justify-center gap-2 px-4 py-3 rounded-md text-sm font-medium bg-[#0061FF] text-white hover:bg-[#0052D9] transition-colors"
+            >
+              <Icon name="simple-icons:dropbox" class="h-5 w-5" />
+              Connect with Dropbox
+            </a>
             <button 
-              @click="showAddModal = false; resetNewAccount()"
+              @click="showAddModal = false"
               class="px-4 py-2 rounded-md text-sm font-medium border border-input bg-background hover:bg-muted transition-colors"
             >
               Cancel
-            </button>
-            <button 
-              @click="addAccount"
-              :disabled="isAdding || !canAdd"
-              class="px-4 py-2 rounded-md text-sm font-medium bg-primary text-primary-foreground hover:bg-primary/90 transition-colors disabled:opacity-50"
-            >
-              <Icon v-if="isAdding" name="lucide:loader-2" class="h-4 w-4 mr-2 animate-spin inline" />
-              Add Account
             </button>
           </div>
         </div>

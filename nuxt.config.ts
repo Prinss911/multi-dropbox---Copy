@@ -11,6 +11,11 @@ export default defineNuxtConfig({
     '@nuxt/fonts',
   ],
 
+  // Cloudflare Pages deployment
+  nitro: {
+    preset: 'cloudflare_pages'
+  },
+
   tailwindcss: {
     exposeConfig: true,
     viewer: true,
@@ -20,7 +25,7 @@ export default defineNuxtConfig({
     // Server-side only (not exposed to client)
     dropboxAppKey: process.env.DROPBOX_APP_KEY || '',
     dropboxAppSecret: process.env.DROPBOX_APP_SECRET || '',
-    dropboxRefreshToken: process.env.DROPBOX_REFRESH_TOKEN || '',
+    dropboxRedirectUri: process.env.DROPBOX_REDIRECT_URI || 'http://localhost:3000/api/auth/dropbox/callback',
 
     // Supabase (server-side)
     supabaseUrl: process.env.SUPABASE_URL || '',

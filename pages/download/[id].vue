@@ -59,14 +59,34 @@
           </div>
 
           <!-- Video Player (for single video file) -->
-          <div v-if="isVideo && !isBatch" class="rounded-lg overflow-hidden bg-black">
+          <div v-if="isVideo && !isBatch" class="rounded-lg overflow-hidden bg-black relative">
             <div data-vjs-player>
               <video 
                 ref="videoPlayer"
-                class="video-js vjs-big-play-centered" 
+                class="video-js custom-player vjs-big-play-centered" 
                 playsinline
               />
             </div>
+            
+            <!-- Skip OSD Indicator -->
+            <Transition name="skip-osd">
+              <div 
+                v-if="skipOsd.visible" 
+                class="skip-osd-container"
+              >
+                <div class="skip-osd-content">
+                  <div class="skip-osd-icons">
+                    <Icon 
+                      v-for="i in 3" 
+                      :key="i" 
+                      :name="skipOsd.direction === 'forward' ? 'lucide:chevron-right' : 'lucide:chevron-left'" 
+                      class="skip-osd-icon"
+                    />
+                  </div>
+                  <span class="skip-osd-text">{{ skipOsd.seconds }} dtk</span>
+                </div>
+              </div>
+            </Transition>
           </div>
 
           <!-- Audio Player (for single audio file) -->
@@ -169,7 +189,7 @@
 
 <script setup lang="ts">
 import videojs from 'video.js'
-import 'video.js/dist/video-js.css'
+import '~/assets/css/video-player.css'
 // File type helpers
 const videoExtensions = ['mp4', 'webm', 'mkv', 'avi', 'mov']
 const audioExtensions = ['mp3', 'wav', 'ogg', 'flac', 'm4a']
@@ -220,6 +240,22 @@ let player: any = null
 const files = computed(() => fileInfo.value?.files || [])
 const isBatch = computed(() => files.value.length > 1)
 const missingCount = computed(() => files.value.filter(f => f.available === false).length)
+
+// Skip OSD State
+const skipOsd = ref({
+  visible: false,
+  direction: 'forward' as 'forward' | 'backward',
+  seconds: 5
+})
+let skipOsdTimeout: ReturnType<typeof setTimeout> | null = null
+
+const showSkipOsd = (direction: 'forward' | 'backward', seconds: number) => {
+  if (skipOsdTimeout) clearTimeout(skipOsdTimeout)
+  skipOsd.value = { visible: true, direction, seconds }
+  skipOsdTimeout = setTimeout(() => {
+    skipOsd.value.visible = false
+  }, 800)
+}
 
 const isVideo = computed(() => {
   if (files.value.length !== 1) return false
@@ -390,15 +426,56 @@ watch([() => fileInfo.value, videoPlayer], async ([info, el]) => {
       autoplay: false,
       preload: 'auto',
       fluid: true,
+      // Performance tuning
+      liveui: false, // Disable live UI for VOD
+      liveTracker: false, // Disable live tracker
+      enableSmoothSeeking: true, // Smoother seeking
       html5: {
         hls: {
-          overrideNative: true
-        }
+          overrideNative: true,
+          // Performance optimizations for HLS
+          enableLowInitialPlaylist: true, // Start with lower quality then adapt
+          smoothQualityChange: true, // Smooth quality transitions
+          maxBufferLength: 30, // 30 seconds buffer
+          maxMaxBufferLength: 60, // Max 60 seconds buffer
+          startLevel: -1, // Auto select start level based on bandwidth
+          handleManifestRedirects: true, // Handle redirects properly
+        },
+        nativeVideoTracks: false,
+        nativeAudioTracks: false,
+        nativeTextTracks: false,
       },
       sources: [{
         src: src,
         type: type
-      }]
+      }],
+      playbackRates: [0.5, 1, 1.5, 2],
+      controlBar: {
+        remainingTimeDisplay: {
+          displayNegative: true
+        }
+      }
+    })
+
+    // Set default volume to 100%
+    player.volume(1.0)
+
+    // Remove LIVE indicator for VOD content
+    player.ready(() => {
+      // Remove seek-to-live and live-control components
+      const liveControl = player.controlBar.getChild('SeekToLive')
+      if (liveControl) {
+        player.controlBar.removeChild(liveControl)
+      }
+      const seekToLiveControl = player.controlBar.getChild('seekToLiveControl') 
+      if (seekToLiveControl) {
+        player.controlBar.removeChild(seekToLiveControl)
+      }
+      // Also try to find and hide by class in DOM
+      const liveElements = player.el().querySelectorAll('.vjs-seek-to-live-control, .vjs-live-control')
+      liveElements.forEach((el: HTMLElement) => {
+        el.style.display = 'none'
+      })
     })
 
     // Custom Quality Selector Implementation
@@ -434,8 +511,28 @@ watch([() => fileInfo.value, videoPlayer], async ([info, el]) => {
                         player.on('loadstart', updateMenu)
                     }
 
-                    // Don't override handleClick - let parent MenuButton handle it
-                    // with pressButton() and unpressButton() which properly control menu visibility
+                    // Override: Prevent hover from showing menu
+                    // @ts-ignore
+                    handleMouseOver() {
+                        // Do nothing - disable hover
+                    }
+
+                    // @ts-ignore
+                    handleMouseOut() {
+                        // Do nothing - disable hover
+                    }
+
+                    // Explicit click handler to toggle menu
+                    handleClick(event: any) {
+                        // @ts-ignore
+                        if (this.buttonPressed_) {
+                            // @ts-ignore
+                            this.unpressButton()
+                        } else {
+                            // @ts-ignore
+                            this.pressButton()
+                        }
+                    }
 
                     createItems() {
                         const items: any[] = []
@@ -463,6 +560,13 @@ watch([() => fileInfo.value, videoPlayer], async ([info, el]) => {
                             handleClick() {
                                 for (let i = 0; i < qualityLevels.length; i++) {
                                     qualityLevels[i].enabled = true
+                                }
+                                // Deselect all siblings first
+                                const menu = this.parentComponent_
+                                if (menu && menu.children_) {
+                                    menu.children_.forEach((child: any) => {
+                                        if (child.selected) child.selected(false)
+                                    })
                                 }
                                 this.selected(true)
                             }
@@ -498,6 +602,13 @@ watch([() => fileInfo.value, videoPlayer], async ([info, el]) => {
                                     for (let j = 0; j < qualityLevels.length; j++) {
                                         qualityLevels[j].enabled = j === levelIndex
                                     }
+                                    // Deselect all siblings first
+                                    const menu = this.parentComponent_
+                                    if (menu && menu.children_) {
+                                        menu.children_.forEach((child: any) => {
+                                            if (child.selected) child.selected(false)
+                                        })
+                                    }
                                     this.selected(true)
                                 }
                             }
@@ -519,15 +630,6 @@ watch([() => fileInfo.value, videoPlayer], async ([info, el]) => {
             // Better to add it immediately, it will populate items when clicked.
             if (!player.controlBar.getChild('HlsQualitySelector')) {
                  player.controlBar.addChild('HlsQualitySelector', {}, 0) // Add as first item
-                 const btn = player.controlBar.getChild('HlsQualitySelector')
-                 if (btn) {
-                    // Add icon manually
-                    const icon = document.createElement('span')
-                    icon.className = 'vjs-icon-cog'
-                    if(!btn.el().querySelector('.vjs-icon-cog')) {
-                        btn.el().insertBefore(icon, btn.el().firstChild)
-                    }
-                 }
             }
         }
 
@@ -553,294 +655,120 @@ watch([() => fileInfo.value, videoPlayer], async ([info, el]) => {
          player = null
        }
     })
+
+    // Keyboard Controls
+    const handleKeydown = (e: KeyboardEvent) => {
+      if (!player) return
+      
+      // Ignore if user is typing in an input
+      if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement) return
+      
+      switch (e.code) {
+        case 'Space':
+          e.preventDefault()
+          if (player.paused()) {
+            player.play()
+          } else {
+            player.pause()
+          }
+          break
+        case 'ArrowLeft':
+          e.preventDefault()
+          player.currentTime(Math.max(0, player.currentTime() - 5))
+          showSkipOsd('backward', 5)
+          break
+        case 'ArrowRight':
+          e.preventDefault()
+          player.currentTime(Math.min(player.duration() || 0, player.currentTime() + 5))
+          showSkipOsd('forward', 5)
+          break
+        case 'ArrowUp':
+          e.preventDefault()
+          player.volume(Math.min(1, player.volume() + 0.1))
+          break
+        case 'ArrowDown':
+          e.preventDefault()
+          player.volume(Math.max(0, player.volume() - 0.1))
+          break
+        case 'KeyM':
+          player.muted(!player.muted())
+          break
+        case 'KeyF':
+          if (player.isFullscreen()) {
+            player.exitFullscreen()
+          } else {
+            player.requestFullscreen()
+          }
+          break
+      }
+    }
+    
+    document.addEventListener('keydown', handleKeydown)
+    
+    // Cleanup keyboard listener when player is disposed
+    player.on('dispose', () => {
+      document.removeEventListener('keydown', handleKeydown)
+    })
   }
 })
 </script>
 
 <style>
-/* VideoJS Modern Premium Theme */
-.video-js {
-  font-family: 'Inter', system-ui, -apple-system, sans-serif;
-  color: #fff;
-}
-
-/* Big Play Button - Modern Circular Glass */
-.video-js .vjs-big-play-button {
-  background-color: rgba(0, 0, 0, 0.3);
-  backdrop-filter: blur(4px);
-  -webkit-backdrop-filter: blur(4px);
-  border: 1px solid rgba(255, 255, 255, 0.1);
-  border-radius: 50%;
-  width: 80px;
-  height: 80px;
-  line-height: 80px;
-  font-size: 3em;
-  margin-left: -40px; /* Center alignment adjustment */
-  margin-top: -40px;
-  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-  box-shadow: 0 4px 24px rgba(0, 0, 0, 0.3);
-}
-
-.video-js:hover .vjs-big-play-button {
-  background-color: rgba(99, 102, 241, 0.8); /* Primary color accent */
-  border-color: rgba(99, 102, 241, 0.4);
-  transform: scale(1.1);
-  box-shadow: 0 0 30px rgba(99, 102, 241, 0.4);
-}
-
-/* Control Bar - Floating Glass Dock */
-.video-js .vjs-control-bar {
-  background: rgba(15, 15, 20, 0.75);
-  backdrop-filter: blur(12px);
-  -webkit-backdrop-filter: blur(12px);
-  border-top: 1px solid rgba(255, 255, 255, 0.08);
-  height: 48px; /* Slightly taller for better touch */
-  padding: 0 10px;
-  display: flex;
-  align-items: center;
-  transition: opacity 0.3s ease;
-  
-  /* Floating Effect */
-  width: 96%;
-  left: 2%;
-  bottom: 12px;
-  border-radius: 12px;
-  margin-bottom: 0;
-  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.4);
-}
-
-/* Hide control bar when inactive/not hovered */
-.video-js.vjs-user-inactive.vjs-playing .vjs-control-bar {
-  opacity: 0;
-  transform: translateY(10px);
-  transition: all 0.4s ease;
-}
-
-/* Progress Control */
-.video-js .vjs-progress-control {
+/* Skip OSD Indicator */
+.skip-osd-container {
   position: absolute;
-  top: -14px; /* Move above the control bar */
-  left: 0;
-  width: 100%;
-  height: 14px; /* Hit area */
-  display: flex;
-  align-items: center;
-}
-
-.video-js .vjs-progress-holder {
-  height: 4px;
-  background: rgba(255, 255, 255, 0.2);
-  border-radius: 10px;
-  margin: 0 12px; /* Indent slightly from edges */
-  transition: height 0.2s;
-}
-
-.video-js .vjs-progress-control:hover .vjs-progress-holder {
-  height: 6px; /* Expand on hover */
-}
-
-.video-js .vjs-play-progress {
-  background: #6366f1; /* Primary Color */
-  border-radius: 10px;
-}
-
-.video-js .vjs-play-progress:before {
-  font-size: 1em;
-  color: #fff;
-  top: -3px;
-  text-shadow: 0 0 5px rgba(99, 102, 241, 0.8);
-  display: none; /* Hide the default circle indicator usually */
-}
-
-/* Show circle indicator on hover */
-.video-js .vjs-progress-control:hover .vjs-play-progress:before {
-  display: block;
-  transform: scale(1.2);
-}
-
-/* Volume Panel */
-.video-js .vjs-volume-panel {
-  margin-left: 10px;
-}
-
-.video-js .vjs-volume-level {
-  background: #fff;
-}
-
-/* Buttons & Icons */
-.video-js .vjs-button {
-  width: 36px;
-  color: rgba(255, 255, 255, 0.85);
-  transition: color 0.2s;
-}
-
-.video-js .vjs-button:hover {
-  color: #fff;
-  text-shadow: 0 0 10px rgba(255, 255, 255, 0.5);
-}
-
-/* Time Display */
-.video-js .vjs-time-control {
-  font-size: 0.9em;
-  font-weight: 500;
-  line-height: 48px;
-  min-width: auto;
-  padding: 0 5px;
-}
-
-/* --- Menu / Quality Selector Styling (Glassmorphism) --- */
-
-/* Wrapper */
-.vjs-quality-selector.vjs-menu-button-popup {
-  position: relative;
-}
-
-/* Base menu - Glassmorphism style */
-.vjs-quality-selector.vjs-menu-button-popup .vjs-menu {
-  display: none;
-  position: absolute;
-  left: 50%; 
-  transform: translateX(-50%);
-  bottom: 60px; /* Position above floating bar */
-  width: auto;
-  min-width: 160px;
-  z-index: 9999;
-  background: rgba(20, 20, 25, 0.9);
-  backdrop-filter: blur(16px);
-  -webkit-backdrop-filter: blur(16px);
-  border: 1px solid rgba(255, 255, 255, 0.08);
-  border-radius: 12px;
-  padding: 6px;
-  box-shadow: 
-    0 10px 40px rgba(0, 0, 0, 0.6),
-    0 0 0 1px rgba(255, 255, 255, 0.05) inset;
-  animation: menuFadeIn 0.2s cubic-bezier(0.16, 1, 0.3, 1);
-  height: auto !important;
-  max-height: none !important;
-}
-
-@keyframes menuFadeIn {
-  from {
-    opacity: 0;
-    transform: translate(-50%, 10px) scale(0.95);
-  }
-  to {
-    opacity: 1;
-    transform: translate(-50%, 0) scale(1);
-  }
-}
-
-/* Arrow pointer */
-.vjs-quality-selector.vjs-menu-button-popup .vjs-menu::after {
-  content: '';
-  position: absolute;
-  bottom: -6px;
-  left: 50%;
-  margin-left: -6px;
-  border-left: 6px solid transparent;
-  border-right: 6px solid transparent;
-  border-top: 6px solid rgba(20, 20, 25, 0.9);
-}
-
-/* Show menu states */
-.vjs-quality-selector.vjs-menu-button-popup:hover .vjs-menu,
-.vjs-quality-selector.vjs-menu-button-popup .vjs-menu:hover,
-.vjs-quality-selector.vjs-menu-button-popup .vjs-menu.vjs-lock-showing {
-  display: block !important;
-}
-
-.vjs-quality-selector .vjs-menu-content {
-  background-color: transparent;
-  padding: 0;
-  max-height: 300px;
-  overflow: auto;
-  display: flex !important;
-  flex-direction: column;
-}
-
-/* Menu items */
-.vjs-quality-selector .vjs-menu-item {
-  display: flex;
-  align-items: center;
-  justify-content: flex-start;
-  padding: 10px 16px 10px 20px;
-  min-height: 38px;
-  line-height: 1.4;
-  font-size: 13px;
-  font-weight: 500;
-  color: rgba(255, 255, 255, 0.85);
-  cursor: pointer;
-  white-space: nowrap;
-  background: transparent;
-  margin: 2px 4px;
-  border-radius: 8px;
-  transition: all 0.15s ease;
-  position: relative;
-  text-transform: none !important;
-}
-
-/* First item (Auto) - special styling with divider */
-.vjs-quality-selector .vjs-menu-item:first-child {
-  color: #a5b4fc; /* Lighter indigo for Auto */
-  font-weight: 600;
-  margin-bottom: 6px;
-  padding-bottom: 10px;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
-  border-radius: 8px 8px 0 0;
-}
-
-/* Hover effect */
-.vjs-quality-selector .vjs-menu-item:hover,
-.vjs-quality-selector .vjs-menu-item:focus {
-  background: rgba(99, 102, 241, 0.12);
-  color: #fff;
-  outline: none;
-}
-
-/* Selected item */
-.vjs-quality-selector .vjs-menu-item.vjs-selected {
-  background: rgba(99, 102, 241, 0.2);
-  color: #a5b4fc;
-  font-weight: 600;
-}
-
-.vjs-quality-selector .vjs-menu-item.vjs-selected::before {
-  content: '✓';
-  position: absolute;
-  left: 6px;
   top: 50%;
-  transform: translateY(-50%);
-  font-size: 10px;
-  color: #a5b4fc;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  z-index: 100;
+  pointer-events: none;
 }
 
-.vjs-quality-selector .vjs-menu-item.vjs-selected .vjs-menu-item-text {
-  margin-left: 0;
+.skip-osd-content {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  background: rgba(0, 0, 0, 0.7);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  padding: 16px 24px;
+  border-radius: 12px;
+  border: 1px solid rgba(255, 255, 255, 0.1);
 }
 
-/* Scroller styling */
-.vjs-quality-selector .vjs-menu-content::-webkit-scrollbar {
-  width: 4px;
-}
-.vjs-quality-selector .vjs-menu-content::-webkit-scrollbar-thumb {
-  background: rgba(255, 255, 255, 0.2);
-  border-radius: 4px;
+.skip-osd-icons {
+  display: flex;
+  align-items: center;
+  gap: 0;
 }
 
-/* Cog Icon */
-.vjs-quality-selector .vjs-icon-cog {
-  font-size: 1.25em; /* Slightly smaller for elegance */
-  color: rgba(255, 255, 255, 0.7);
-  transition: transform 0.4s ease, color 0.2s;
+.skip-osd-icon {
+  width: 24px;
+  height: 24px;
+  color: white;
+  margin: 0 -4px;
 }
 
-.vjs-quality-selector:hover .vjs-icon-cog {
-  color: #fff;
-  transform: rotate(45deg);
+.skip-osd-text {
+  font-size: 14px;
+  font-weight: 600;
+  color: white;
 }
 
-.vjs-quality-selector .vjs-icon-cog:before {
-  content: '\f114';
-  font-family: VideoJS;
+/* Skip OSD Animation */
+.skip-osd-enter-active {
+  transition: all 0.2s ease-out;
+}
+.skip-osd-leave-active {
+  transition: all 0.3s ease-in;
+}
+.skip-osd-enter-from {
+  opacity: 0;
+  transform: translate(-50%, -50%) scale(0.8);
+}
+.skip-osd-leave-to {
+  opacity: 0;
+  transform: translate(-50%, -50%) scale(1.1);
 }
 </style>

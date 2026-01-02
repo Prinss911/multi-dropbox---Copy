@@ -255,6 +255,13 @@ const formatBytes = (bytes: number) => {
   return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i]
 }
 
+// Sanitize filename for HTTP headers (replace non-ASCII characters)
+const sanitizeFilename = (filename: string): string => {
+  // Replace any character outside ISO-8859-1 range with underscore
+  // This prevents "String contains non ISO-8859-1 code point" errors
+  return filename.replace(/[^\x00-\xFF]/g, '_')
+}
+
 const formatExpiry = (date?: string) => {
   if (!date) return '-'
   return new Date(date).toLocaleDateString('en-US', {
@@ -318,7 +325,9 @@ const processFiles = async (files: File[]) => {
 
     const uploadFile = async (item: FileQueueItem, index: number) => {
       item.status = 'uploading'
-      const filePath = `${batchFolder}/${item.file.name}`
+      // Sanitize filename to prevent HTTP header encoding errors
+      const safeFilename = sanitizeFilename(item.file.name)
+      const filePath = `${batchFolder}/${safeFilename}`
 
       try {
         let actualPath = ''
