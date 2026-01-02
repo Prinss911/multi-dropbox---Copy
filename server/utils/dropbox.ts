@@ -58,7 +58,7 @@ export function useDropboxServer() {
             }
 
             const accessToken = await getAccessTokenForAccount(account)
-            return new Dropbox({ accessToken })
+            return new Dropbox({ accessToken, fetch: fetch })
         },
 
         async getActiveClient() {
@@ -68,7 +68,7 @@ export function useDropboxServer() {
             }
 
             const accessToken = await getAccessTokenForAccount(account)
-            return { client: new Dropbox({ accessToken }), account }
+            return { client: new Dropbox({ accessToken, fetch: fetch }), account }
         }
     }
 }
