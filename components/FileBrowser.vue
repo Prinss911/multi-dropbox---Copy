@@ -563,6 +563,10 @@
 </template>
 
 <script setup lang="ts">
+const props = defineProps<{
+  accountId?: string
+}>()
+
 const {
   currentPath,
   files,
@@ -592,7 +596,7 @@ const {
   getFileIcon,
   getIconColor,
   getFolders,
-} = useDropboxFiles()
+} = useDropboxFiles(props.accountId)
 
 const { activeAccountId } = useAccounts()
 
@@ -601,10 +605,12 @@ onMounted(() => {
   fetchFiles('')
 })
 
-// Refetch when account changes
-watch(activeAccountId, () => {
-  fetchFiles('', true) // clear immediately and fetch
-})
+// Refetch when account changes (only if not using explicit accountId)
+if (!props.accountId) {
+  watch(activeAccountId, () => {
+    fetchFiles('', true) // clear immediately and fetch
+  })
+}
 
 // Breadcrumb segments
 const pathSegments = computed(() => {

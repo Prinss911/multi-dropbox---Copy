@@ -76,6 +76,16 @@
                My Files
             </NuxtLink>
             <NuxtLink 
+              to="/split" 
+              :class="[
+                'flex items-center gap-3 px-3 py-2 text-sm font-medium rounded-md transition-colors',
+                route.path === '/split' ? 'bg-accent text-accent-foreground' : 'text-muted-foreground hover:bg-muted hover:text-foreground'
+              ]"
+            >
+               <Icon name="lucide:columns" class="h-4 w-4" />
+               Split View
+            </NuxtLink>
+            <NuxtLink 
               to="/recent" 
               :class="[
                 'flex items-center gap-3 px-3 py-2 text-sm font-medium rounded-md transition-colors',

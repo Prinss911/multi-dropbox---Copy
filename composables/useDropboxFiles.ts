@@ -14,17 +14,23 @@ export interface DropboxListResponse {
     hasMore: boolean
 }
 
-export const useDropboxFiles = () => {
-    // Get activeAccountId from accounts composable
+export const useDropboxFiles = (explicitAccountId?: string) => {
+    // Get global activeAccountId
     const { activeAccountId } = useAccounts()
 
-    const currentPath = useState<string>('dropbox-path', () => '')
-    const files = useState<DropboxEntry[]>('dropbox-files', () => [])
-    const isLoading = useState<boolean>('dropbox-loading', () => false)
-    const error = useState<string | null>('dropbox-error', () => null)
+    // Determine the key suffix for state isolation
+    const stateSuffix = explicitAccountId ? `-${explicitAccountId}` : '-main'
 
-    // Selection state
-    const selectedIds = useState<Set<string>>('dropbox-selected', () => new Set())
+    // Resolve target account ID
+    const targetAccountId = computed(() => explicitAccountId || activeAccountId.value)
+
+    const currentPath = useState<string>(`dropbox-path${stateSuffix}`, () => '')
+    const files = useState<DropboxEntry[]>(`dropbox-files${stateSuffix}`, () => [])
+    const isLoading = useState<boolean>(`dropbox-loading${stateSuffix}`, () => false)
+    const error = useState<string | null>(`dropbox-error${stateSuffix}`, () => null)
+
+    // Selection state should also be isolated
+    const selectedIds = useState<Set<string>>(`dropbox-selected${stateSuffix}`, () => new Set())
 
     const selectedFiles = computed(() => {
         return files.value.filter(f => selectedIds.value.has(f.id))
@@ -59,6 +65,12 @@ export const useDropboxFiles = () => {
         error.value = null
         clearSelection() // Clear selection when navigating
 
+        // If no account selected at all
+        if (!targetAccountId.value) {
+            isLoading.value = false
+            return
+        }
+
         // Clear files immediately when switching accounts to avoid showing stale data
         if (clearImmediately) {
             files.value = []
@@ -66,7 +78,7 @@ export const useDropboxFiles = () => {
 
         try {
             const response = await $fetch<DropboxListResponse>('/api/dropbox/files', {
-                query: { path, accountId: activeAccountId.value },
+                query: { path, accountId: targetAccountId.value },
             })
 
             files.value = response.entries
@@ -96,7 +108,7 @@ export const useDropboxFiles = () => {
     const getDownloadLink = async (filePath: string): Promise<string | null> => {
         try {
             const response = await $fetch<{ link: string }>('/api/dropbox/download', {
-                query: { path: filePath, accountId: activeAccountId.value },
+                query: { path: filePath, accountId: targetAccountId.value },
             })
             return response.link
         } catch (err) {
@@ -109,7 +121,7 @@ export const useDropboxFiles = () => {
         try {
             await $fetch('/api/dropbox/folder', {
                 method: 'POST',
-                body: { path: currentPath.value, name, accountId: activeAccountId.value }
+                body: { path: currentPath.value, name, accountId: targetAccountId.value }
             })
             await fetchFiles(currentPath.value)
             return true
@@ -123,7 +135,7 @@ export const useDropboxFiles = () => {
         try {
             await $fetch('/api/dropbox/delete', {
                 method: 'POST',
-                body: { path, accountId: activeAccountId.value }
+                body: { path, accountId: targetAccountId.value }
             })
             await fetchFiles(currentPath.value)
             return true
@@ -137,7 +149,7 @@ export const useDropboxFiles = () => {
         try {
             await $fetch('/api/dropbox/bulk-delete', {
                 method: 'POST',
-                body: { paths, accountId: activeAccountId.value }
+                body: { paths, accountId: targetAccountId.value }
             })
             clearSelection()
             await fetchFiles(currentPath.value)
@@ -156,7 +168,7 @@ export const useDropboxFiles = () => {
 
             await $fetch('/api/dropbox/move', {
                 method: 'POST',
-                body: { fromPath: oldPath, toPath: newPath, accountId: activeAccountId.value }
+                body: { fromPath: oldPath, toPath: newPath, accountId: targetAccountId.value }
             })
             await fetchFiles(currentPath.value)
             return true
@@ -176,7 +188,7 @@ export const useDropboxFiles = () => {
 
             await $fetch('/api/dropbox/bulk-move', {
                 method: 'POST',
-                body: { entries, accountId: activeAccountId.value }
+                body: { entries, accountId: targetAccountId.value }
             })
             clearSelection()
             await fetchFiles(currentPath.value)
@@ -197,7 +209,7 @@ export const useDropboxFiles = () => {
 
             await $fetch('/api/dropbox/bulk-copy', {
                 method: 'POST',
-                body: { entries, accountId: activeAccountId.value }
+                body: { entries, accountId: targetAccountId.value }
             })
             clearSelection()
             await fetchFiles(currentPath.value)
@@ -379,7 +391,7 @@ export const useDropboxFiles = () => {
     const getFolders = async (path: string = ''): Promise<DropboxEntry[]> => {
         try {
             const response = await $fetch<DropboxListResponse>('/api/dropbox/files', {
-                query: { path },
+                query: { path, accountId: targetAccountId.value },
             })
             return response.entries.filter(e => e.type === 'folder')
         } catch (err) {
