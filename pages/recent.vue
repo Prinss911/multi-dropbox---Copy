@@ -49,6 +49,7 @@
         <UiTableHeader>
           <UiTableRow class="hover:bg-transparent">
             <UiTableHead class="min-w-[200px]">Name</UiTableHead>
+            <UiTableHead class="hidden md:table-cell">Account</UiTableHead>
             <UiTableHead class="hidden md:table-cell">Location</UiTableHead>
             <UiTableHead class="hidden md:table-cell">Size</UiTableHead>
             <UiTableHead class="text-right hidden md:table-cell">Modified</UiTableHead>
@@ -68,9 +69,14 @@
               <div class="flex flex-col min-w-0">
                 <span class="text-sm font-medium text-foreground truncate">{{ entry.name }}</span>
                 <span class="text-xs text-muted-foreground md:hidden">
-                  {{ formatFileSize(entry.size) }} • {{ formatDate(entry.modified) }}
+                  {{ entry.accountName }} • {{ formatFileSize(entry.size) }}
                 </span>
               </div>
+            </UiTableCell>
+            <UiTableCell class="hidden md:table-cell">
+              <span class="text-xs font-medium px-2 py-1 rounded bg-muted text-muted-foreground">
+                {{ entry.accountName }}
+              </span>
             </UiTableCell>
             <UiTableCell class="text-muted-foreground text-sm hidden md:table-cell">
               {{ getParentPath(entry.path) }}
@@ -89,8 +95,8 @@
 </template>
 
 <script setup lang="ts">
-const { getDownloadLink, formatFileSize, formatDate, getFileIcon, getIconColor } = useDropboxFiles()
-const { activeAccountId } = useAccounts()
+const { formatFileSize, formatDate, getFileIcon, getIconColor } = useDropboxFiles()
+const { accounts } = useAccounts()
 
 interface RecentFile {
   id: string
@@ -100,6 +106,8 @@ interface RecentFile {
   size: number | null
   modified: string | null
   extension: string | null
+  accountId: string
+  accountName: string
 }
 
 const files = ref<RecentFile[]>([])
@@ -112,8 +120,32 @@ const fetchRecent = async () => {
   files.value = [] // Clear immediately
   
   try {
-    const response = await $fetch<{ entries: RecentFile[] }>('/api/dropbox/recent')
-    files.value = response.entries
+    const promises = accounts.value.map(async (acc) => {
+      try {
+        const response = await $fetch<{ entries: RecentFile[] }>('/api/dropbox/recent', {
+          query: { accountId: acc.id }
+        })
+        // Tag entries with account info
+        return response.entries.map(e => ({
+          ...e,
+          accountId: acc.id,
+          accountName: acc.name
+        }))
+      } catch (err) {
+        console.warn(`Failed to fetch recent for ${acc.name}:`, err)
+        return []
+      }
+    })
+
+    const results = await Promise.all(promises)
+    const allFiles = results.flat()
+    
+    // Sort by modified desc
+    files.value = allFiles.sort((a, b) => {
+      const dateA = a.modified ? new Date(a.modified).getTime() : 0
+      const dateB = b.modified ? new Date(b.modified).getTime() : 0
+      return dateB - dateA
+    })
   } catch (err: any) {
     error.value = err.data?.message || err.message || 'Failed to load recent files'
   } finally {
@@ -125,10 +157,10 @@ onMounted(() => {
   fetchRecent()
 })
 
-// Refetch when account changes
-watch(activeAccountId, () => {
+// Refetch when accounts list changes (add/remove)
+watch(accounts, () => {
   fetchRecent()
-})
+}, { deep: true })
 
 const getParentPath = (path: string | null) => {
   if (!path) return '/'
@@ -138,9 +170,16 @@ const getParentPath = (path: string | null) => {
 }
 
 const handleFileClick = async (entry: RecentFile) => {
-  const link = await getDownloadLink(entry.path)
-  if (link) {
-    window.open(link, '_blank')
+  try {
+    // Manually fetch download link using the specific account ID
+    const response = await $fetch<{ link: string }>('/api/dropbox/download', {
+        query: { path: entry.path, accountId: entry.accountId },
+    })
+    if (response.link) {
+      window.open(response.link, '_blank')
+    }
+  } catch (err) {
+    console.error('Error opening file:', err)
   }
 }
 </script>

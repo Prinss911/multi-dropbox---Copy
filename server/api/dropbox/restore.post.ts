@@ -10,8 +10,15 @@ export default defineEventHandler(async (event) => {
     }
 
     try {
-        const { getActiveClient } = useDropboxServer()
-        const { client: dbx } = await getActiveClient()
+        const { getActiveClient, getClientForAccount } = useDropboxServer()
+
+        let dbx
+        if (body.accountId) {
+            dbx = await getClientForAccount(body.accountId)
+        } else {
+            const res = await getActiveClient()
+            dbx = res.client
+        }
 
         // Get the revisions of the file
         const revisions = await dbx.filesListRevisions({

@@ -49,6 +49,7 @@
         <UiTableHeader>
           <UiTableRow class="hover:bg-transparent">
             <UiTableHead class="min-w-[200px]">Name</UiTableHead>
+            <UiTableHead class="hidden md:table-cell">Account</UiTableHead>
             <UiTableHead class="hidden md:table-cell">Location</UiTableHead>
             <UiTableHead class="hidden md:table-cell">Expires</UiTableHead>
             <UiTableHead class="text-right">Actions</UiTableHead>
@@ -67,7 +68,9 @@
               <div class="flex flex-col min-w-0">
                 <span class="text-sm font-medium text-foreground truncate">{{ entry.name }}</span>
                 <!-- Mobile Meta -->
-                <div class="md:hidden flex items-center gap-2 text-xs mt-0.5">
+                <div class="md:hidden flex flex-wrap items-center gap-2 text-xs mt-0.5">
+                   <span class="font-medium text-muted-foreground">{{ entry.accountName }}</span>
+                   <span v-if="entry.accountName" class="text-muted-foreground">•</span>
                    <span 
                     v-if="entry.daysRemaining !== null"
                     :class="[
@@ -79,6 +82,11 @@
                    </span>
                 </div>
               </div>
+            </UiTableCell>
+            <UiTableCell class="hidden md:table-cell">
+              <span class="text-xs font-medium px-2 py-1 rounded bg-muted text-muted-foreground">
+                {{ entry.accountName }}
+              </span>
             </UiTableCell>
             <UiTableCell class="text-muted-foreground text-sm hidden md:table-cell">
               {{ getParentPath(entry.path) }}
@@ -155,7 +163,7 @@
 
 <script setup lang="ts">
 const { getFileIcon } = useDropboxFiles()
-const { activeAccountId } = useAccounts()
+const { accounts } = useAccounts()
 
 interface TrashFile {
   id: string
@@ -166,6 +174,8 @@ interface TrashFile {
   deletedAt: string | null
   daysRemaining: number | null
   extension: string | null
+  accountId: string
+  accountName: string
 }
 
 const files = ref<TrashFile[]>([])
@@ -198,8 +208,27 @@ const fetchTrash = async () => {
   files.value = [] // Clear immediately
   
   try {
-    const response = await $fetch<{ entries: TrashFile[] }>('/api/dropbox/trash')
-    files.value = response.entries
+    const promises = accounts.value.map(async (acc) => {
+      try {
+        const response = await $fetch<{ entries: TrashFile[] }>('/api/dropbox/trash', {
+          query: { accountId: acc.id }
+        })
+        return response.entries.map(e => ({
+          ...e,
+          accountId: acc.id,
+          accountName: acc.name
+        }))
+      } catch (err) {
+        console.warn(`Failed to fetch trash for ${acc.name}:`, err)
+        return []
+      }
+    })
+
+    const results = await Promise.all(promises)
+    const allFiles = results.flat()
+    
+    // Sort by days remaining (ascending - urgent first) or default
+    files.value = allFiles.sort((a, b) => (a.daysRemaining || 99) - (b.daysRemaining || 99))
   } catch (err: any) {
     error.value = err.data?.message || err.message || 'Failed to load trash'
   } finally {
@@ -211,10 +240,10 @@ onMounted(() => {
   fetchTrash()
 })
 
-// Refetch when account changes
-watch(activeAccountId, () => {
+// Refetch when accounts change
+watch(accounts, () => {
   fetchTrash()
-})
+}, { deep: true })
 
 const getParentPath = (path: string | null) => {
   if (!path) return '/'
@@ -230,7 +259,7 @@ const restoreFile = async (entry: TrashFile) => {
   try {
     await $fetch('/api/dropbox/restore', {
       method: 'POST',
-      body: { path: entry.path }
+      body: { path: entry.path, accountId: entry.accountId }
     })
     // Remove from list
     files.value = files.value.filter(f => f.id !== entry.id)
@@ -254,7 +283,7 @@ const deleteForever = async (entry: TrashFile) => {
   try {
     await $fetch('/api/dropbox/permanent-delete', {
       method: 'POST',
-      body: { path: entry.path }
+      body: { path: entry.path, accountId: entry.accountId }
     })
     files.value = files.value.filter(f => f.id !== entry.id)
   } catch (err: any) {
@@ -276,7 +305,7 @@ const emptyTrash = async () => {
       try {
         await $fetch('/api/dropbox/permanent-delete', {
           method: 'POST',
-          body: { path: file.path }
+          body: { path: file.path, accountId: file.accountId }
         })
       } catch (err) {
         console.error('Error deleting:', file.name)
