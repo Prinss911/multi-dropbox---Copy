@@ -305,6 +305,7 @@ const route = useRoute()
 const {
   accounts,
   activeAccount,
+  activeAccountId,
   isAddingAccount,
   fetchAccounts,
   switchAccount,
@@ -402,6 +403,9 @@ const handleAddAccount = async () => {
   
   if (result.success) {
     addAccountStep.value = 'success'
+    // Refresh accounts list and storage info
+    await fetchAccounts()
+    await fetchStorageInfo()
     await fetchFiles('')
   } else {
     addAccountError.value = result.error || 'Failed to add account'
@@ -438,7 +442,19 @@ const handleSwitchAccount = async (accountId: string) => {
 
 const handleRemoveAccount = async (accountId: string) => {
   if (confirm('Are you sure you want to remove this account?')) {
-    await removeAccount(accountId)
+    const wasActive = activeAccountId.value === accountId
+    const success = await removeAccount(accountId)
+    
+    if (success) {
+      // Refresh storage info
+      await fetchStorageInfo()
+      
+      // If the removed account was active, switch to another one
+      if (wasActive && accounts.value.length > 0) {
+        await switchAccount(accounts.value[0].id)
+        await fetchFiles('', true)
+      }
+    }
   }
 }
 </script>
