@@ -119,14 +119,6 @@
                <Icon name="lucide:users" class="h-4 w-4" />
                Users
             </NuxtLink>
-          </nav>
-                'flex items-center gap-3 px-3 py-2 text-sm font-medium rounded-md transition-colors',
-                route.path === '/trash' ? 'bg-accent text-accent-foreground' : 'text-muted-foreground hover:bg-muted hover:text-foreground'
-              ]"
-            >
-               <Icon name="lucide:trash-2" class="h-4 w-4" />
-               Trash
-            </NuxtLink>
             <NuxtLink 
               to="/accounts" 
               :class="[
@@ -134,10 +126,10 @@
                 route.path === '/accounts' ? 'bg-accent text-accent-foreground' : 'text-muted-foreground hover:bg-muted hover:text-foreground'
               ]"
             >
-               <Icon name="lucide:users" class="h-4 w-4" />
+               <Icon name="lucide:settings" class="h-4 w-4" />
                Accounts
             </NuxtLink>
-         </nav>
+          </nav>
       </div>
       
       <!-- Active Account & Combined Storage -->
