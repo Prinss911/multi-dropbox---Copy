@@ -1,4 +1,4 @@
-import { serverSupabaseUser } from '#supabase/server'
+import { getAuthUser } from '../../utils/auth'
 import { getAccounts, type DropboxAccount } from '../../utils/accounts'
 import { createShare, type ShareFile } from '../../utils/shares'
 import { Dropbox } from 'dropbox'
@@ -47,7 +47,7 @@ interface FileInfo {
 }
 
 export default defineEventHandler(async (event) => {
-    const user = await serverSupabaseUser(event)
+    const user = await getAuthUser(event)
     const body = await readBody(event)
     const {
         accountId,
