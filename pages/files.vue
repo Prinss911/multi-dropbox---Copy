@@ -5,9 +5,5 @@
 </template>
 
 <script setup lang="ts">
-const { isAdmin } = useAuth()
-
-if (!isAdmin.value) {
-  navigateTo('/access-denied')
-}
+// Auth check handled by global middleware
 </script>

@@ -3,26 +3,41 @@ export const useAuth = () => {
     const client = useSupabaseClient()
     const role = useState<string | null>('user-role', () => null)
 
-    // Define fetchRole first to avoid TDZ error
+    // Verify role fetching
     const fetchRole = async () => {
-        if (!user.value) return
+        if (!user.value) {
+            console.log('[fetchRole] No user, skipping')
+            return
+        }
 
         // Try to get from JWT first (if hook worked)
         const jwtRole = user.value.app_metadata?.claims?.user_role
+        console.log('[fetchRole] JWT Role check:', jwtRole)
+
         if (jwtRole) {
             role.value = jwtRole
             return
         }
 
         // Fallback/Verify with DB (using RLS policy)
-        const { data } = await client
+        console.log('[fetchRole] Fetching from DB for user:', user.value.id)
+        const { data, error } = await client
             .from('user_roles')
             .select('role')
             .eq('user_id', user.value.id)
             .single()
 
+        if (error) {
+            console.error('[fetchRole] DB Error:', error)
+        }
+
         if (data) {
+            console.log('[fetchRole] DB Role found:', data.role)
             role.value = data.role
+            return data.role
+        } else {
+            console.log('[fetchRole] No role found in DB')
+            return null
         }
     }
 
