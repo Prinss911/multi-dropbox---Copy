@@ -64,6 +64,7 @@ definePageMeta({
   layout: false
 })
 
+const { login } = useAuth()
 const email = ref('')
 const password = ref('')
 const isLoading = ref(false)
@@ -75,9 +76,7 @@ const handleLogin = async () => {
   error.value = ''
   
   try {
-    // TODO: Implement actual Supabase login
-    await new Promise(resolve => setTimeout(resolve, 1000))
-    console.log('Login with', email.value, password.value)
+    await login(email.value, password.value)
     router.push('/')
   } catch (err: any) {
     error.value = err.message || 'Invalid credentials'

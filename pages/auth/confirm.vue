@@ -89,9 +89,13 @@ const handleSetPassword = async () => {
   error.value = ''
   
   try {
-    // TODO: Implement actual Supabase update user
-    await new Promise(resolve => setTimeout(resolve, 1000))
-    console.log('Set password to', password.value)
+    const client = useSupabaseClient()
+    const { error: updateError } = await client.auth.updateUser({ 
+      password: password.value 
+    })
+    
+    if (updateError) throw updateError
+    
     router.push('/')
   } catch (err: any) {
     error.value = err.message || 'Failed to set password'

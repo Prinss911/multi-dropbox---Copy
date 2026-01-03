@@ -1,3 +1,4 @@
+import { serverSupabaseUser } from '#supabase/server'
 import { getAccounts, type DropboxAccount } from '../../utils/accounts'
 import { createShare, type ShareFile } from '../../utils/shares'
 import { Dropbox } from 'dropbox'
@@ -46,6 +47,7 @@ interface FileInfo {
 }
 
 export default defineEventHandler(async (event) => {
+    const user = await serverSupabaseUser(event)
     const body = await readBody(event)
     const {
         accountId,
@@ -90,14 +92,18 @@ export default defineEventHandler(async (event) => {
         }
 
         // Calculate expiration date
-        const expiresAt = new Date()
+        let expiresAt: string | null = null
 
-        if (expirationUnit === 'seconds') {
-            expiresAt.setSeconds(expiresAt.getSeconds() + (expirationDays || 10))
-        } else {
-            const validDays = [1, 3, 7, 30]
-            const days = validDays.includes(expirationDays) ? expirationDays : 7
-            expiresAt.setDate(expiresAt.getDate() + days)
+        if (expirationDays !== null && expirationDays !== 'never') {
+            const date = new Date()
+            if (expirationUnit === 'seconds') {
+                date.setSeconds(date.getSeconds() + (expirationDays || 10))
+            } else {
+                const validDays = [1, 3, 7, 30]
+                const days = validDays.includes(expirationDays) ? expirationDays : 7
+                date.setDate(date.getDate() + days)
+            }
+            expiresAt = date.toISOString()
         }
 
         // Prepare share data
@@ -131,7 +137,8 @@ export default defineEventHandler(async (event) => {
             files: shareFiles,
             accountId: account.id,
             accountName: account.name,
-            expiresAt: expiresAt.toISOString()
+            expiresAt: expiresAt,
+            userId: user?.id
         })
 
         // Get base URL
@@ -161,4 +168,3 @@ export default defineEventHandler(async (event) => {
         })
     }
 })
-

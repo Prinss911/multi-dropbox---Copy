@@ -1,7 +1,13 @@
 <template>
-  <FileBrowser />
+  <div>
+    <FileBrowser />
+  </div>
 </template>
 
 <script setup lang="ts">
-// Main File Browser Page
+const { isAdmin } = useAuth()
+
+if (!isAdmin.value) {
+  navigateTo('/access-denied')
+}
 </script>

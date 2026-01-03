@@ -66,6 +66,18 @@
          <div class="px-2 mb-2 text-xs font-semibold text-muted-foreground tracking-wider uppercase">Storage</div>
          <nav class="space-y-1">
             <NuxtLink 
+              to="/user" 
+              :class="[
+                'flex items-center gap-3 px-3 py-2 text-sm font-medium rounded-md transition-colors',
+                route.path === '/user' ? 'bg-accent text-accent-foreground' : 'text-muted-foreground hover:bg-muted hover:text-foreground'
+              ]"
+            >
+               <Icon name="lucide:list" class="h-4 w-4" />
+               My Uploads
+            </NuxtLink>
+            
+            <template v-if="isAdmin">
+            <NuxtLink 
               to="/files" 
               :class="[
                 'flex items-center gap-3 px-3 py-2 text-sm font-medium rounded-md transition-colors',
@@ -105,6 +117,7 @@
                <Icon name="lucide:trash-2" class="h-4 w-4" />
                Trash
             </NuxtLink>
+            </template>
           </nav>
           
           <div class="px-2 mt-4 mb-2 text-xs font-semibold text-muted-foreground tracking-wider uppercase">Management</div>
@@ -352,6 +365,7 @@
 
 <script setup lang="ts">
 const route = useRoute()
+const { isAdmin } = useAuth()
 
 const {
   accounts,

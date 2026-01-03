@@ -218,9 +218,10 @@ const expirationOptions = [
   { days: 1, unit: 'days', label: '1 Day' },
   { days: 3, unit: 'days', label: '3 Days' },
   { days: 7, unit: 'days', label: '7 Days' },
-  { days: 30, unit: 'days', label: '1 Month' }
+  { days: 30, unit: 'days', label: '1 Month' },
+  { days: 'never', unit: 'days', label: 'Never' }
 ]
-const selectedExpiration = ref(7)
+const selectedExpiration = ref<number | string>(7)
 const selectedExpirationUnit = ref('days')
 
 interface FileQueueItem {

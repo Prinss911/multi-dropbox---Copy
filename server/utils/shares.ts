@@ -16,8 +16,9 @@ export interface ShareLink {
     accountId: string
     accountName: string
     createdAt: string
-    expiresAt: string
+    expiresAt: string | null
     downloadCount: number
+    userId?: string | null
 }
 
 // Generate simple unique ID
@@ -39,7 +40,8 @@ export async function createShare(data: Omit<ShareLink, 'id' | 'createdAt' | 'do
         account_id: data.accountId,
         account_name: data.accountName,
         expires_at: data.expiresAt,
-        download_count: 0
+        download_count: 0,
+        user_id: data.userId || null
     }
 
     const { error } = await supabase
@@ -68,7 +70,7 @@ export async function getSharesByAccount(accountId: string): Promise<ShareLink[]
     if (error) throw error
     if (!data) return []
 
-    return data.map(item => ({
+    return (data as any[]).map(item => ({
         id: item.id,
         fileId: item.file_id,
         fileName: item.file_name,
@@ -78,7 +80,35 @@ export async function getSharesByAccount(accountId: string): Promise<ShareLink[]
         accountName: item.account_name,
         createdAt: item.created_at,
         expiresAt: item.expires_at,
-        downloadCount: item.download_count
+        downloadCount: item.download_count,
+        userId: item.user_id
+    }))
+}
+
+export async function getSharesByUser(userId: string): Promise<ShareLink[]> {
+    const supabase = useSupabase()
+
+    const { data, error } = await supabase
+        .from('shares')
+        .select('*')
+        .eq('user_id', userId)
+        .order('created_at', { ascending: false })
+
+    if (error) throw error
+    if (!data) return []
+
+    return (data as any[]).map(item => ({
+        id: item.id,
+        fileId: item.file_id,
+        fileName: item.file_name,
+        filePath: item.file_path,
+        files: item.files || [],
+        accountId: item.account_id,
+        accountName: item.account_name,
+        createdAt: item.created_at,
+        expiresAt: item.expires_at,
+        downloadCount: item.download_count,
+        userId: item.user_id
     }))
 }
 
@@ -131,7 +161,10 @@ export async function cleanExpiredShares(): Promise<void> {
     const supabase = useSupabase()
     const now = new Date().toISOString()
 
+    await supabase
+        .from('shares')
         .delete()
+        .not('expires_at', 'is', null)
         .lt('expires_at', now)
 }
 
@@ -144,8 +177,8 @@ export async function findActiveShare(accountId: string, filePath: string): Prom
         .select('*')
         .eq('account_id', accountId)
         .eq('file_path', filePath)
-        .gt('expires_at', now)
-        .order('expires_at', { ascending: false }) // Get the one expiring latest if multiple
+        .or(`expires_at.gt.${now},expires_at.is.null`)
+        .order('created_at', { ascending: false }) // Get latest if multiple share links exist
         .limit(1)
         .single()
 

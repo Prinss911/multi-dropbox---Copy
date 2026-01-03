@@ -152,12 +152,48 @@
 </template>
 
 <script setup lang="ts">
-const users = ref([
-  { id: 1, name: 'Alice Johnson', email: 'alice@example.com', role: 'Admin', status: 'Active', lastLogin: '2 mins ago' },
-  { id: 2, name: 'Bob Smith', email: 'bob@example.com', role: 'User', status: 'Active', lastLogin: '1 day ago' },
-  { id: 3, name: '', email: 'new.user@example.com', role: 'User', status: 'Invited', lastLogin: 'Never' },
-  { id: 4, name: 'Diana Prince', email: 'diana@example.com', role: 'User', status: 'Active', lastLogin: '3 hours ago' },
-])
+const client = useSupabaseClient()
+const { user: currentUser } = useAuth()
+const isLoading = ref(false)
+
+// Real data state
+const rawRoles = ref<any[]>([])
+const rawProfiles = ref<any[]>([])
+
+const fetchUsers = async () => {
+  isLoading.value = true
+  try {
+    const [roles, profiles] = await Promise.all([
+      client.from('user_roles').select('*'),
+      client.from('profiles').select('*')
+    ])
+    
+    if (roles.error) throw roles.error
+    if (profiles.error) throw profiles.error
+    
+    rawRoles.value = roles.data || []
+    rawProfiles.value = profiles.data || []
+  } catch (err) {
+    console.error('Failed to fetch users:', err)
+  } finally {
+    isLoading.value = false
+  }
+}
+
+// Computed users list merging roles and profiles
+const users = computed(() => {
+  return rawRoles.value.map(roleData => {
+    const profile = rawProfiles.value.find(p => p.id === roleData.user_id)
+    return {
+      id: roleData.user_id,
+      name: profile?.name || '',
+      email: profile?.email || 'Unknown',
+      role: roleData.role,
+      status: 'Active', // Todo: check auth.users confirmed_at via view or assume Active
+      lastLogin: 'Unknown' // Need access to auth.users to see this
+    }
+  })
+})
 
 const isModalOpen = ref(false)
 const editingUser = ref<any>(null)
@@ -166,6 +202,11 @@ const formData = reactive({
   email: '',
   role: 'User',
   status: 'Active'
+})
+
+// Fetch on mount
+onMounted(() => {
+  fetchUsers()
 })
 
 const getInitials = (name: string) => {
@@ -189,40 +230,76 @@ const openModal = (user: any = null) => {
     // Invite defaults
     formData.name = ''
     formData.email = ''
-    formData.role = 'User'
+    formData.role = 'user' // lowercase to match db enum
     formData.status = 'Invited' 
   }
   isModalOpen.value = true
 }
 
-const saveUser = () => {
-  if (editingUser.value) {
-    // Update existing (mock)
-    const index = users.value.findIndex(u => u.id === editingUser.value.id)
-    if (index !== -1) {
-      users.value[index] = { ...users.value[index], ...formData }
+const saveUser = async () => {
+  isLoading.value = true
+  try {
+    if (editingUser.value) {
+      // Update existing
+      // Only Role and Name can be updated here for now
+      // 1. Update Profile
+      const { error: profileError } = await client
+        .from('profiles')
+        .update({ name: formData.name })
+        .eq('id', editingUser.value.id)
+      
+      if (profileError) throw profileError
+
+      // 2. Update Role (only if changed and not self to avoid lockout)
+      if (editingUser.value.role !== formData.role) {
+         const { error: roleError } = await client
+            .from('user_roles')
+            .update({ role: formData.role.toLowerCase() })
+            .eq('user_id', editingUser.value.id)
+         
+         if (roleError) throw roleError
+      }
+    } else {
+      // Invite New User
+      await $fetch('/api/auth/invite', {
+        method: 'POST',
+        body: {
+            email: formData.email,
+            role: formData.role.toLowerCase()
+        }
+      })
     }
-  } else {
-    // Add new invite (mock)
-    users.value.push({
-      id: Date.now(),
-      name: '', // Name unknown until they sign up
-      email: formData.email,
-      role: formData.role,
-      status: 'Invited',
-      lastLogin: 'Never'
-    })
+    
+    isModalOpen.value = false
+    await fetchUsers() // Refresh list
+  } catch (err: any) {
+    alert(err.message || 'Operation failed')
+  } finally {
+    isLoading.value = false
   }
-  isModalOpen.value = false
 }
 
-const deleteUser = (user: any) => {
+const deleteUser = async (user: any) => {
   if (confirm(`Are you sure you want to remove ${user.name || user.email}?`)) {
-    users.value = users.value.filter(u => u.id !== user.id)
+    // TODO: Implement delete API
+    alert('Delete functionality not yet implemented (requires Admin API)')
   }
 }
 
-const resendInvite = (user: any) => {
-  alert(`Invitation forwarded to ${user.email}`)
+const resendInvite = async (user: any) => {
+  if (confirm(`Resend invitation to ${user.email}?`)) {
+      try {
+        await $fetch('/api/auth/invite', {
+            method: 'POST',
+            body: {
+                email: user.email,
+                role: user.role
+            }
+        })
+        alert('Invitation resent.')
+      } catch (err: any) {
+        alert(err.message)
+      }
+  }
 }
 </script>
