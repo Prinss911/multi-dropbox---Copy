@@ -10,7 +10,6 @@
           <span class="text-foreground">MultiBox</span>
         </NuxtLink>
         <div class="flex items-center gap-4">
-          <span class="text-sm text-muted-foreground hidden sm:inline">Anonymous Upload</span>
         </div>
       </div>
     </header>
@@ -215,7 +214,7 @@ const MAX_TOTAL_SIZE = 1024 * 1024 * 1024 // 1GB
 const MAX_CONCURRENT = 5
 
 const expirationOptions = [
-  { days: 60, unit: 'seconds', label: '1 Min' },
+  { days: 1800, unit: 'seconds', label: '30 Min' },
   { days: 1, unit: 'days', label: '1 Day' },
   { days: 3, unit: 'days', label: '3 Days' },
   { days: 7, unit: 'days', label: '7 Days' },

@@ -1,5 +1,5 @@
 <template>
-  <div class="space-y-4">
+  <div class="space-y-6">
     <!-- Header -->
     <div class="flex items-center justify-between">
       <div class="flex items-center gap-3">
@@ -12,13 +12,13 @@
         </div>
       </div>
       <UiButton @click="openModal()">
-        <Icon name="lucide:plus" class="mr-2 h-4 w-4" />
-        Add User
+        <Icon name="lucide:mail-plus" class="mr-2 h-4 w-4" />
+        Invite User
       </UiButton>
     </div>
 
     <!-- User List -->
-    <div class="rounded-md border bg-card text-card-foreground shadow-sm">
+    <div class="rounded-md border bg-card text-card-foreground shadow-sm overflow-hidden">
       <UiTable>
         <UiTableHeader>
           <UiTableRow class="hover:bg-transparent">
@@ -34,11 +34,11 @@
           <UiTableRow v-for="user in users" :key="user.id">
             <UiTableCell class="font-medium">
               <div class="flex items-center gap-3">
-                <div class="h-8 w-8 rounded-full bg-muted flex items-center justify-center text-xs font-bold">
-                  {{ getInitials(user.name) }}
+                <div class="h-8 w-8 rounded-full bg-muted flex items-center justify-center text-xs font-bold shrink-0">
+                  {{ user.name ? getInitials(user.name) : '?' }}
                 </div>
                 <div>
-                  <div class="font-medium">{{ user.name }}</div>
+                  <div class="font-medium">{{ user.name || 'Pending Accept' }}</div>
                   <div class="text-xs text-muted-foreground md:hidden">{{ user.email }}</div>
                 </div>
               </div>
@@ -61,12 +61,22 @@
             </UiTableCell>
             <UiTableCell>
               <div class="flex items-center gap-1.5">
-                <span class="h-2 w-2 rounded-full" :class="user.status === 'Active' ? 'bg-green-500' : 'bg-gray-300'"></span>
+                <span 
+                  class="h-2 w-2 rounded-full" 
+                  :class="{
+                    'bg-green-500': user.status === 'Active',
+                    'bg-yellow-500': user.status === 'Invited',
+                    'bg-gray-300': user.status === 'Inactive'
+                  }"
+                ></span>
                 <span class="text-sm">{{ user.status }}</span>
               </div>
             </UiTableCell>
             <UiTableCell class="text-right">
               <div class="flex justify-end gap-1">
+                <UiButton v-if="user.status === 'Invited'" variant="ghost" size="sm" class="h-8" @click="resendInvite(user)">
+                  <span class="text-xs">Resend</span>
+                </UiButton>
                 <UiButton variant="ghost" size="icon" class="h-8 w-8" @click="openModal(user)">
                   <Icon name="lucide:pencil" class="h-4 w-4" />
                   <span class="sr-only">Edit</span>
@@ -82,46 +92,58 @@
       </UiTable>
     </div>
 
-    <!-- Edit/Add Modal -->
+    <!-- Edit/Invite Modal -->
     <Teleport to="body">
       <div v-if="isModalOpen" class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm" @click.self="isModalOpen = false">
         <div class="bg-card w-full max-w-md rounded-lg shadow-lg border p-6 space-y-4">
-          <h2 class="text-lg font-semibold">{{ editingUser ? 'Edit User' : 'Add New User' }}</h2>
+          <div class="flex items-center gap-3 mb-4">
+            <div class="p-2 bg-primary/10 rounded-full text-primary">
+              <Icon :name="editingUser ? 'lucide:pencil' : 'lucide:mail-plus'" class="h-5 w-5" />
+            </div>
+            <h2 class="text-lg font-semibold">{{ editingUser ? 'Edit User' : 'Invite New User' }}</h2>
+          </div>
           
-          <div class="space-y-3">
-            <div class="space-y-1">
+          <div class="space-y-4">
+            <!-- Name is only editable for existing users -->
+            <div v-if="editingUser" class="space-y-1">
               <label class="text-sm font-medium">Full Name</label>
               <UiInput v-model="formData.name" placeholder="John Doe" />
             </div>
             
             <div class="space-y-1">
               <label class="text-sm font-medium">Email Address</label>
-              <UiInput v-model="formData.email" type="email" placeholder="john@example.com" />
+              <UiInput v-model="formData.email" type="email" placeholder="colleague@example.com" :disabled="!!editingUser" />
+              <p v-if="!editingUser" class="text-xs text-muted-foreground">
+                An invitation email will be sent to this address.
+              </p>
             </div>
 
             <div class="grid grid-cols-2 gap-4">
               <div class="space-y-1">
                 <label class="text-sm font-medium">Role</label>
                 <select v-model="formData.role" class="w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2">
-                  <option>User</option>
-                  <option>Admin</option>
-                  <option>Viewer</option>
+                  <option value="User">User</option>
+                  <option value="Admin">Admin</option>
                 </select>
               </div>
 
-              <div class="space-y-1">
+              <div v-if="editingUser" class="space-y-1">
                 <label class="text-sm font-medium">Status</label>
                 <select v-model="formData.status" class="w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2">
-                  <option>Active</option>
-                  <option>Inactive</option>
+                  <option value="Active">Active</option>
+                  <option value="Inactive">Inactive</option>
+                  <option value="Invited">Invited</option>
                 </select>
               </div>
             </div>
           </div>
 
-          <div class="flex justify-end gap-2 pt-2">
+          <div class="flex justify-end gap-2 pt-4">
             <UiButton variant="outline" @click="isModalOpen = false">Cancel</UiButton>
-            <UiButton @click="saveUser">Save Changes</UiButton>
+            <UiButton @click="saveUser">
+              <Icon v-if="!editingUser" name="lucide:send" class="mr-2 h-4 w-4" />
+              {{ editingUser ? 'Save Changes' : 'Send Invitation' }}
+            </UiButton>
           </div>
         </div>
       </div>
@@ -133,9 +155,8 @@
 const users = ref([
   { id: 1, name: 'Alice Johnson', email: 'alice@example.com', role: 'Admin', status: 'Active', lastLogin: '2 mins ago' },
   { id: 2, name: 'Bob Smith', email: 'bob@example.com', role: 'User', status: 'Active', lastLogin: '1 day ago' },
-  { id: 3, name: 'Charlie Brown', email: 'charlie@example.com', role: 'Viewer', status: 'Inactive', lastLogin: '1 week ago' },
+  { id: 3, name: '', email: 'new.user@example.com', role: 'User', status: 'Invited', lastLogin: 'Never' },
   { id: 4, name: 'Diana Prince', email: 'diana@example.com', role: 'User', status: 'Active', lastLogin: '3 hours ago' },
-  { id: 5, name: 'Evan Wright', email: 'evan@example.com', role: 'User', status: 'Active', lastLogin: '5 mins ago' },
 ])
 
 const isModalOpen = ref(false)
@@ -148,6 +169,7 @@ const formData = reactive({
 })
 
 const getInitials = (name: string) => {
+  if (!name) return '?'
   return name
     .split(' ')
     .map(n => n[0])
@@ -164,11 +186,11 @@ const openModal = (user: any = null) => {
     formData.role = user.role
     formData.status = user.status
   } else {
-    // Reset defaults
+    // Invite defaults
     formData.name = ''
     formData.email = ''
     formData.role = 'User'
-    formData.status = 'Active'
+    formData.status = 'Invited' 
   }
   isModalOpen.value = true
 }
@@ -181,10 +203,13 @@ const saveUser = () => {
       users.value[index] = { ...users.value[index], ...formData }
     }
   } else {
-    // Add new (mock)
+    // Add new invite (mock)
     users.value.push({
       id: Date.now(),
-      ...formData,
+      name: '', // Name unknown until they sign up
+      email: formData.email,
+      role: formData.role,
+      status: 'Invited',
       lastLogin: 'Never'
     })
   }
@@ -192,8 +217,12 @@ const saveUser = () => {
 }
 
 const deleteUser = (user: any) => {
-  if (confirm(`Are you sure you want to delete ${user.name}?`)) {
+  if (confirm(`Are you sure you want to remove ${user.name || user.email}?`)) {
     users.value = users.value.filter(u => u.id !== user.id)
   }
+}
+
+const resendInvite = (user: any) => {
+  alert(`Invitation forwarded to ${user.email}`)
 }
 </script>
