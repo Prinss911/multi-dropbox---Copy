@@ -1,7 +1,17 @@
 <template>
   <div class="min-h-screen bg-background font-sans antialiased text-foreground flex">
+    <!-- Mobile Backdrop -->
+    <div 
+      v-if="isMobileMenuOpen" 
+      class="fixed inset-0 bg-black/50 z-40 md:hidden backdrop-blur-sm"
+      @click="isMobileMenuOpen = false"
+    ></div>
+
     <!-- Sidebar -->
-    <aside class="w-64 border-r bg-card hidden md:flex flex-col h-screen sticky top-0 overflow-hidden">
+    <aside 
+      class="fixed inset-y-0 left-0 z-50 w-64 border-r bg-card flex flex-col h-screen transition-transform duration-300 md:translate-x-0 md:sticky md:top-0 overflow-hidden shadow-xl md:shadow-none"
+      :class="isMobileMenuOpen ? 'translate-x-0' : '-translate-x-full'"
+    >
       <div class="h-14 flex items-center px-6 border-b">
         <a class="flex items-center gap-2 font-semibold text-lg" href="/">
           <div class="bg-blue-600 text-white p-1.5 rounded">
@@ -182,7 +192,7 @@
                </UiButton>
            </div>
         </header>
-        <main class="flex-1 overflow-auto bg-muted/10 p-6">
+        <main class="flex-1 overflow-auto bg-muted/10 p-4 md:p-6">
             <slot />
         </main>
     </div>
@@ -457,4 +467,12 @@ const handleRemoveAccount = async (accountId: string) => {
     }
   }
 }
+
+// Mobile Menu State
+const isMobileMenuOpen = ref(false)
+
+// Close menu on route change
+watch(() => route.path, () => {
+  isMobileMenuOpen.value = false
+})
 </script>

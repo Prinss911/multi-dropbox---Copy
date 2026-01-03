@@ -24,32 +24,35 @@
     <Transition name="slide">
       <div 
         v-if="selectedIds.size > 0" 
-        class="fixed bottom-6 left-1/2 -translate-x-1/2 z-30 bg-card border rounded-lg shadow-lg px-4 py-3 flex items-center gap-4"
+        class="fixed bottom-6 left-1/2 -translate-x-1/2 z-30 bg-card border rounded-lg shadow-lg px-4 py-3 flex items-center gap-4 max-w-[90vw] overflow-x-auto"
       >
-        <span class="text-sm font-medium">
+        <span class="text-sm font-medium whitespace-nowrap">
           {{ selectedIds.size }} selected
         </span>
-        <div class="h-4 w-px bg-border"></div>
+        <div class="h-4 w-px bg-border shrink-0"></div>
         <div class="flex gap-2">
           <UiButton variant="outline" size="sm" @click="handleBulkDownload" :disabled="isDownloading">
             <Icon :name="isDownloading ? 'lucide:loader-2' : 'lucide:download'" :class="['mr-2 h-4 w-4', isDownloading && 'animate-spin']" />
-            Download
+            <span class="hidden sm:inline">Download</span>
           </UiButton>
           <UiButton variant="outline" size="sm" @click="showCopyModal = true">
             <Icon name="lucide:copy" class="mr-2 h-4 w-4" />
-            Copy
+            <span class="hidden sm:inline">Copy</span>
           </UiButton>
           <UiButton variant="outline" size="sm" @click="showMoveModal = true">
             <Icon name="lucide:folder-input" class="mr-2 h-4 w-4" />
-            Move
+            <span class="hidden sm:inline">Move</span>
           </UiButton>
           <UiButton variant="outline" size="sm" class="text-destructive hover:text-destructive" @click="handleBulkDelete">
             <Icon name="lucide:trash-2" class="mr-2 h-4 w-4" />
-            Delete
+            <span class="hidden sm:inline">Delete</span>
           </UiButton>
         </div>
-        <div class="h-4 w-px bg-border"></div>
-        <UiButton variant="ghost" size="sm" @click="clearSelection">
+        <div class="h-4 w-px bg-border shrink-0"></div>
+        <UiButton variant="ghost" size="icon" class="sm:hidden" @click="clearSelection">
+           <Icon name="lucide:x" class="h-4 w-4" />
+        </UiButton>
+        <UiButton variant="ghost" size="sm" class="hidden sm:flex" @click="clearSelection">
           <Icon name="lucide:x" class="mr-2 h-4 w-4" />
           Cancel
         </UiButton>
@@ -165,7 +168,7 @@
       <UiTable>
         <UiTableHeader>
           <UiTableRow class="hover:bg-transparent">
-            <UiTableHead class="w-[50px]">
+            <UiTableHead class="w-[40px] px-2 md:px-4">
               <input 
                 type="checkbox" 
                 :checked="isAllSelected"
@@ -173,10 +176,10 @@
                 class="h-4 w-4 rounded border-muted-foreground"
               />
             </UiTableHead>
-            <UiTableHead class="w-[400px]">Name</UiTableHead>
-            <UiTableHead>Type</UiTableHead>
-            <UiTableHead>Size</UiTableHead>
-            <UiTableHead class="text-right">Modified</UiTableHead>
+            <UiTableHead class="min-w-[200px]">Name</UiTableHead>
+            <UiTableHead class="hidden md:table-cell">Type</UiTableHead>
+            <UiTableHead class="hidden md:table-cell">Size</UiTableHead>
+            <UiTableHead class="text-right hidden md:table-cell">Modified</UiTableHead>
             <UiTableHead class="w-[100px]"></UiTableHead>
           </UiTableRow>
         </UiTableHeader>
@@ -187,7 +190,7 @@
             :class="'group cursor-pointer transition-colors ' + (isSelected(entry.id) ? 'bg-primary/10' : 'hover:bg-muted/50')"
             @click="handleEntryClick(entry)"
           >
-            <UiTableCell @click.stop>
+            <UiTableCell class="px-2 md:px-4" @click.stop>
               <input 
                 type="checkbox" 
                 :checked="isSelected(entry.id)"
@@ -195,24 +198,24 @@
                 class="h-4 w-4 rounded border-muted-foreground"
               />
             </UiTableCell>
-            <UiTableCell class="font-medium flex items-center gap-3 py-3">
-              <div :class="['p-2 rounded', getIconColor(entry)]">
+            <UiTableCell class="font-medium flex items-center gap-3 py-3 px-2 md:px-4">
+              <div :class="['p-2 rounded shrink-0', getIconColor(entry)]">
                 <Icon :name="getFileIcon(entry)" class="h-4 w-4" :class="entry.type === 'folder' ? 'fill-current' : ''" />
               </div>
               <div class="flex flex-col min-w-0">
                 <span class="text-sm font-medium text-foreground truncate">{{ entry.name }}</span>
-                <span class="text-xs text-muted-foreground">
-                  {{ entry.type === 'folder' ? 'Folder' : (entry.extension?.toUpperCase() || 'File') }}
+                <span class="text-xs text-muted-foreground md:hidden">
+                  {{ entry.type === 'folder' ? 'Folder' : formatFileSize(entry.size) }}
                 </span>
               </div>
             </UiTableCell>
-            <UiTableCell class="text-muted-foreground">
+            <UiTableCell class="text-muted-foreground hidden md:table-cell">
               {{ entry.type === 'folder' ? 'Folder' : (entry.extension?.toUpperCase() || 'File') }}
             </UiTableCell>
-            <UiTableCell class="text-muted-foreground">
+            <UiTableCell class="text-muted-foreground hidden md:table-cell">
               {{ formatFileSize(entry.size) }}
             </UiTableCell>
-            <UiTableCell class="text-right text-muted-foreground">
+            <UiTableCell class="text-right text-muted-foreground hidden md:table-cell">
               {{ formatDate(entry.modified) }}
             </UiTableCell>
             <UiTableCell class="text-right" @click.stop>
