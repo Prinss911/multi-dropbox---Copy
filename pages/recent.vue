@@ -48,10 +48,10 @@
       <UiTable>
         <UiTableHeader>
           <UiTableRow class="hover:bg-transparent">
-            <UiTableHead class="w-[400px]">Name</UiTableHead>
-            <UiTableHead>Location</UiTableHead>
-            <UiTableHead>Size</UiTableHead>
-            <UiTableHead class="text-right">Modified</UiTableHead>
+            <UiTableHead class="min-w-[200px]">Name</UiTableHead>
+            <UiTableHead class="hidden md:table-cell">Location</UiTableHead>
+            <UiTableHead class="hidden md:table-cell">Size</UiTableHead>
+            <UiTableHead class="text-right hidden md:table-cell">Modified</UiTableHead>
           </UiTableRow>
         </UiTableHeader>
         <UiTableBody>
@@ -62,18 +62,23 @@
             @click="handleFileClick(entry)"
           >
             <UiTableCell class="font-medium flex items-center gap-3 py-3">
-              <div :class="['p-2 rounded', getIconColor(entry as any)]">
+              <div :class="['p-2 rounded shrink-0', getIconColor(entry as any)]">
                 <Icon :name="getFileIcon(entry as any)" class="h-4 w-4" />
               </div>
-              <span class="text-sm font-medium text-foreground truncate">{{ entry.name }}</span>
+              <div class="flex flex-col min-w-0">
+                <span class="text-sm font-medium text-foreground truncate">{{ entry.name }}</span>
+                <span class="text-xs text-muted-foreground md:hidden">
+                  {{ formatFileSize(entry.size) }} • {{ formatDate(entry.modified) }}
+                </span>
+              </div>
             </UiTableCell>
-            <UiTableCell class="text-muted-foreground text-sm">
+            <UiTableCell class="text-muted-foreground text-sm hidden md:table-cell">
               {{ getParentPath(entry.path) }}
             </UiTableCell>
-            <UiTableCell class="text-muted-foreground">
+            <UiTableCell class="text-muted-foreground hidden md:table-cell">
               {{ formatFileSize(entry.size) }}
             </UiTableCell>
-            <UiTableCell class="text-right text-muted-foreground">
+            <UiTableCell class="text-right text-muted-foreground hidden md:table-cell">
               {{ formatDate(entry.modified) }}
             </UiTableCell>
           </UiTableRow>

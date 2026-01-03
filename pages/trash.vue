@@ -48,9 +48,9 @@
       <UiTable>
         <UiTableHeader>
           <UiTableRow class="hover:bg-transparent">
-            <UiTableHead class="w-[350px]">Name</UiTableHead>
-            <UiTableHead>Location</UiTableHead>
-            <UiTableHead>Expires</UiTableHead>
+            <UiTableHead class="min-w-[200px]">Name</UiTableHead>
+            <UiTableHead class="hidden md:table-cell">Location</UiTableHead>
+            <UiTableHead class="hidden md:table-cell">Expires</UiTableHead>
             <UiTableHead class="text-right">Actions</UiTableHead>
           </UiTableRow>
         </UiTableHeader>
@@ -61,15 +61,29 @@
             class="group"
           >
             <UiTableCell class="font-medium flex items-center gap-3 py-3">
-              <div class="p-2 rounded bg-muted">
+              <div class="p-2 rounded bg-muted shrink-0">
                 <Icon :name="getFileIcon(entry as any)" class="h-4 w-4 text-muted-foreground" />
               </div>
-              <span class="text-sm font-medium text-foreground truncate">{{ entry.name }}</span>
+              <div class="flex flex-col min-w-0">
+                <span class="text-sm font-medium text-foreground truncate">{{ entry.name }}</span>
+                <!-- Mobile Meta -->
+                <div class="md:hidden flex items-center gap-2 text-xs mt-0.5">
+                   <span 
+                    v-if="entry.daysRemaining !== null"
+                    :class="[
+                      entry.daysRemaining <= 7 ? 'text-red-500' : 
+                      entry.daysRemaining <= 14 ? 'text-yellow-600' : 'text-muted-foreground'
+                    ]"
+                   >
+                     {{ entry.daysRemaining }}d left
+                   </span>
+                </div>
+              </div>
             </UiTableCell>
-            <UiTableCell class="text-muted-foreground text-sm">
+            <UiTableCell class="text-muted-foreground text-sm hidden md:table-cell">
               {{ getParentPath(entry.path) }}
             </UiTableCell>
-            <UiTableCell>
+            <UiTableCell class="hidden md:table-cell">
               <span 
                 v-if="entry.daysRemaining !== null"
                 :class="[
