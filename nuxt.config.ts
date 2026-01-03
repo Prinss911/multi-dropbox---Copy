@@ -33,6 +33,8 @@ export default defineNuxtConfig({
 
     public: {
       dropboxAppKey: process.env.DROPBOX_APP_KEY || '',
+      supabaseUrl: process.env.SUPABASE_URL || '',
+      supabaseAnonKey: process.env.SUPABASE_ANON_KEY || ''
     }
   },
 })
