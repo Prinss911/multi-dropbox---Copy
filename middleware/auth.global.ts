@@ -4,6 +4,9 @@ export default defineNuxtRouteMiddleware(async (to, from) => {
         return
     }
 
+    // Wait for auth to initialize (check localStorage)
+    await waitForAuthInit()
+
     const { user, isAdmin, fetchRole } = useAuth()
 
     // Public routes (Login, Invite Confirm, Anonymous Upload)
@@ -12,6 +15,11 @@ export default defineNuxtRouteMiddleware(async (to, from) => {
 
     if (!user.value && !isPublic) {
         return navigateTo('/login')
+    }
+
+    // If user is logged in and trying to access login page, redirect to home/files
+    if (user.value && to.path === '/login') {
+        return navigateTo('/files')
     }
 
     // Admin routes

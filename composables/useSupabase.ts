@@ -50,6 +50,19 @@ export const useSupabaseClient = () => {
 }
 
 /**
+ * Global promise to track auth initialization
+ */
+let initPromise: Promise<void> | null = null
+
+/**
+ * Wait for Supabase auth to initialize (check local storage)
+ */
+export const waitForAuthInit = async () => {
+    if (import.meta.server) return
+    if (initPromise) await initPromise
+}
+
+/**
  * Get current authenticated user from client-side session.
  * Uses useState to share user state across components.
  */
@@ -59,14 +72,20 @@ export const useSupabaseUser = () => {
     const isInitialized = useState<boolean>('supabase-auth-initialized', () => false)
 
     // Only initialize on client-side
-    if (import.meta.client && !isInitialized.value) {
+    if (import.meta.client && !isInitialized.value && !initPromise) {
         const client = useSupabaseClient()
 
-        // Get initial session
-        client.auth.getSession().then(({ data: { session } }) => {
-            console.log('[useSupabaseUser] Initial session:', session ? 'Found' : 'None')
-            user.value = session?.user || null
-            isInitialized.value = true
+        // Create initialization promise
+        initPromise = new Promise<void>((resolve) => {
+            // Get initial session
+            client.auth.getSession().then(({ data: { session } }) => {
+                console.log('[useSupabaseUser] Initial session:', session ? 'Found: ' + session.user.email : 'None')
+                if (session) {
+                    user.value = session.user
+                }
+                isInitialized.value = true
+                resolve()
+            })
         })
 
         // Listen for auth changes
