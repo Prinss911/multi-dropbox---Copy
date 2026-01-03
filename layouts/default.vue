@@ -41,7 +41,7 @@
         
         <!-- Add Account Button (outside scrollable area) -->
         <button
-          @click="showAddAccountModal = true"
+          @click="openAddAccountModal"
           class="w-full flex items-center gap-2 px-2 py-1.5 mt-1 rounded-md text-sm text-muted-foreground hover:bg-muted hover:text-foreground transition-colors"
         >
           <div class="h-6 w-6 rounded-full flex items-center justify-center border-2 border-dashed border-muted-foreground/50">
@@ -368,6 +368,10 @@ watch(accounts, () => {
   fetchStorageInfo()
 }, { deep: true })
 
+// Runtime config for default App Key
+const runtimeConfig = useRuntimeConfig()
+const hasDefaultCredentials = computed(() => !!runtimeConfig.public.dropboxAppKey)
+
 // Add account modal state
 const showAddAccountModal = ref(false)
 const addAccountStep = ref<'credentials' | 'auth' | 'success' | 'error'>('credentials')
@@ -377,8 +381,20 @@ const appSecret = ref('')
 const authCode = ref('')
 const accountName = ref('')
 
+// When opening modal, skip to auth if default credentials exist
+const openAddAccountModal = () => {
+  showAddAccountModal.value = true
+  if (hasDefaultCredentials.value) {
+    appKey.value = runtimeConfig.public.dropboxAppKey as string
+    addAccountStep.value = 'auth'
+  } else {
+    addAccountStep.value = 'credentials'
+  }
+}
+
 const openAuthUrl = () => {
-  window.open(getAuthUrl(appKey.value), '_blank', 'width=600,height=800')
+  const keyToUse = appKey.value || runtimeConfig.public.dropboxAppKey as string
+  window.open(getAuthUrl(keyToUse), '_blank', 'width=600,height=800')
 }
 
 const handleAddAccount = async () => {
