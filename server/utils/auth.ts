@@ -2,15 +2,21 @@ import { createClient } from '@supabase/supabase-js'
 import type { H3Event } from 'h3'
 
 /**
- * Get authenticated user from Supabase session cookies.
- * Replaces serverSupabaseUser from @nuxtjs/supabase module.
+ * Get authenticated user from Authorization header or cookies.
+ * Supports both Bearer token from header and Supabase session cookies.
  */
 export async function getAuthUser(event: H3Event) {
     const config = useRuntimeConfig()
 
-    // Get access token from cookie
-    const cookies = parseCookies(event)
-    const accessToken = cookies['sb-access-token'] || cookies['sb-token']
+    // First try Authorization header (for explicit API calls)
+    const authHeader = getHeader(event, 'authorization')
+    let accessToken = authHeader?.replace('Bearer ', '')
+
+    // Fallback to cookie-based auth
+    if (!accessToken) {
+        const cookies = parseCookies(event)
+        accessToken = cookies['sb-access-token'] || cookies['sb-token']
+    }
 
     if (!accessToken) {
         return null

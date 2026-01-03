@@ -153,6 +153,7 @@
 
 <script setup lang="ts">
 const client = useSupabaseClient()
+const { authFetch } = useAuthFetch()
 const { user: currentUser } = useAuth()
 const isLoading = ref(false)
 
@@ -261,7 +262,7 @@ const saveUser = async () => {
       }
     } else {
       // Invite New User
-      await $fetch('/api/auth/invite', {
+      await authFetch('/api/auth/invite', {
         method: 'POST',
         body: {
             email: formData.email,
@@ -289,7 +290,7 @@ const deleteUser = async (user: any) => {
 const resendInvite = async (user: any) => {
   if (confirm(`Resend invitation to ${user.email}?`)) {
       try {
-        await $fetch('/api/auth/invite', {
+        await authFetch('/api/auth/invite', {
             method: 'POST',
             body: {
                 email: user.email,
