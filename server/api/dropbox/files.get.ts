@@ -3,12 +3,32 @@ import type { files } from 'dropbox'
 export default defineEventHandler(async (event) => {
     const query = getQuery(event)
     const path = (query.path as string) || ''
+    const accountId = query.accountId as string
 
     try {
-        const { getActiveClient } = useDropboxServer()
-        const { client: dbx, account } = await getActiveClient()
+        const { getClientForAccount, getActiveClient } = useDropboxServer()
 
-        console.log(`[Files API] Fetching files for account: ${account.name} (${account.id}), is_active: ${account.is_active}, path: ${path || 'root'}`)
+        let dbx, account
+
+        // Use accountId from request if provided, otherwise fallback to active
+        if (accountId) {
+            const { getAccountById } = await import('../../utils/accounts')
+            account = await getAccountById(accountId)
+            if (!account) {
+                throw createError({
+                    statusCode: 404,
+                    statusMessage: 'Account not found'
+                })
+            }
+            dbx = await getClientForAccount(accountId)
+        } else {
+            // Fallback to active account (backward compatibility)
+            const result = await getActiveClient()
+            dbx = result.client
+            account = result.account
+        }
+
+        console.log(`[Files API] Fetching files for account: ${account.name} (${account.id}), path: ${path || 'root'}`)
         console.log(`[Files API] Using Dropbox account_id: ${account.account_id}`)
 
         // Prevent caching
@@ -17,7 +37,7 @@ export default defineEventHandler(async (event) => {
 
         setHeader(event, 'X-Active-Account-Name', account.name)
         setHeader(event, 'X-Active-Account-Id', account.id)
-        setHeader(event, 'X-Dropbox-Real-Account-Id', account.account_id) // The actual ID from Dropbox
+        setHeader(event, 'X-Dropbox-Real-Account-Id', account.account_id)
 
         const response = await dbx.filesListFolder({
             path: path,

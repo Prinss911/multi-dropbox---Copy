@@ -1,6 +1,6 @@
 export default defineEventHandler(async (event) => {
     const body = await readBody(event)
-    const { paths } = body
+    const { paths, accountId } = body
 
     if (!paths || !Array.isArray(paths) || paths.length === 0) {
         throw createError({
@@ -10,8 +10,15 @@ export default defineEventHandler(async (event) => {
     }
 
     try {
-        const { getActiveClient } = useDropboxServer()
-        const { client: dbx } = await getActiveClient()
+        const { getClientForAccount, getActiveClient } = useDropboxServer()
+
+        let dbx
+        if (accountId) {
+            dbx = await getClientForAccount(accountId)
+        } else {
+            const result = await getActiveClient()
+            dbx = result.client
+        }
 
         // Delete files in batch
         const entries = paths.map(path => ({ path }))

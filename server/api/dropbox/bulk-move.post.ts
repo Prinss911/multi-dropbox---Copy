@@ -1,6 +1,6 @@
 export default defineEventHandler(async (event) => {
     const body = await readBody(event)
-    const { entries } = body // [{ from_path, to_path }, ...]
+    const { entries, accountId } = body // [{ from_path, to_path }, ...]
 
     if (!entries || !Array.isArray(entries) || entries.length === 0) {
         throw createError({
@@ -10,8 +10,15 @@ export default defineEventHandler(async (event) => {
     }
 
     try {
-        const { getActiveClient } = useDropboxServer()
-        const { client: dbx } = await getActiveClient()
+        const { getClientForAccount, getActiveClient } = useDropboxServer()
+
+        let dbx
+        if (accountId) {
+            dbx = await getClientForAccount(accountId)
+        } else {
+            const result = await getActiveClient()
+            dbx = result.client
+        }
 
         // Move files in batch
         const response = await dbx.filesMoveBatchV2({

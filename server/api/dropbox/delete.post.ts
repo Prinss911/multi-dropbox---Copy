@@ -1,6 +1,6 @@
 export default defineEventHandler(async (event) => {
     const body = await readBody(event)
-    const { path } = body
+    const { path, accountId } = body
 
     if (!path) {
         throw createError({
@@ -10,8 +10,15 @@ export default defineEventHandler(async (event) => {
     }
 
     try {
-        const { getActiveClient } = useDropboxServer()
-        const { client: dbx } = await getActiveClient()
+        const { getClientForAccount, getActiveClient } = useDropboxServer()
+
+        let dbx
+        if (accountId) {
+            dbx = await getClientForAccount(accountId)
+        } else {
+            const result = await getActiveClient()
+            dbx = result.client
+        }
 
         const response = await dbx.filesDeleteV2({
             path: path

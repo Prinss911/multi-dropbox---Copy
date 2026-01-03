@@ -1,6 +1,7 @@
 export default defineEventHandler(async (event) => {
     const query = getQuery(event)
     const path = query.path as string
+    const accountId = query.accountId as string
 
     if (!path) {
         throw createError({
@@ -10,8 +11,22 @@ export default defineEventHandler(async (event) => {
     }
 
     try {
-        const { getActiveClient } = useDropboxServer()
-        const { client: dbx, account } = await getActiveClient()
+        const { getClientForAccount, getActiveClient } = useDropboxServer()
+
+        let dbx, account
+
+        if (accountId) {
+            const { getAccountById } = await import('../../utils/accounts')
+            account = await getAccountById(accountId)
+            if (!account) {
+                throw createError({ statusCode: 404, statusMessage: 'Account not found' })
+            }
+            dbx = await getClientForAccount(accountId)
+        } else {
+            const result = await getActiveClient()
+            dbx = result.client
+            account = result.account
+        }
 
         console.log(`[Download API] Getting link for account: ${account.name}, path: ${path}`)
 
