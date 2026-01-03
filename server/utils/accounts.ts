@@ -49,6 +49,8 @@ export async function getAccounts(): Promise<DropboxAccount[]> {
 export async function getActiveAccount(): Promise<DropboxAccount | null> {
     const supabase = getSupabase()
 
+    console.log('[getActiveAccount] Fetching active account from database...')
+
     let { data, error } = await supabase
         .from('dropbox_accounts')
         .select('*')
@@ -57,6 +59,7 @@ export async function getActiveAccount(): Promise<DropboxAccount | null> {
         .single()
 
     if (error || !data) {
+        console.log('[getActiveAccount] No active account found, falling back to first account')
         const result = await supabase
             .from('dropbox_accounts')
             .select('*')
@@ -65,6 +68,12 @@ export async function getActiveAccount(): Promise<DropboxAccount | null> {
             .single()
 
         data = result.data
+    }
+
+    if (data) {
+        console.log(`[getActiveAccount] Returning account: ${data.name} (${data.id}), is_active: ${data.is_active}`)
+    } else {
+        console.log('[getActiveAccount] No accounts found!')
     }
 
     return data || null
