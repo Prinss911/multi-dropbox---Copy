@@ -3,14 +3,16 @@ export const useAuth = () => {
     const client = useSupabaseClient()
     const role = useState<string | null>('user-role', () => null)
 
-    // Fetch role on init or user change
-    watch(user, async (u) => {
-        if (u) {
-            await fetchRole()
-        } else {
-            role.value = null
-        }
-    }, { immediate: true })
+    // Fetch role on init or user change - only on client side
+    if (import.meta.client) {
+        watch(user, async (u) => {
+            if (u) {
+                await fetchRole()
+            } else {
+                role.value = null
+            }
+        }, { immediate: true })
+    }
 
     const fetchRole = async () => {
         if (!user.value) return
@@ -48,7 +50,10 @@ export const useAuth = () => {
         const { error } = await client.auth.signOut()
         if (error) throw error
         role.value = null
-        navigateTo('/login')
+        // Use navigateTo only on client side
+        if (import.meta.client) {
+            await navigateTo('/login')
+        }
     }
 
     return {

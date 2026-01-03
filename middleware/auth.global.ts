@@ -1,4 +1,9 @@
 export default defineNuxtRouteMiddleware(async (to, from) => {
+    // Skip auth check during SSR - will be handled on client
+    if (import.meta.server) {
+        return
+    }
+
     const { user, isAdmin, fetchRole } = useAuth()
 
     // Public routes (Login, Invite Confirm, Anonymous Upload)
