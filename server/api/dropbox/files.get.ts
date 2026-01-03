@@ -8,7 +8,12 @@ export default defineEventHandler(async (event) => {
         const { getActiveClient } = useDropboxServer()
         const { client: dbx, account } = await getActiveClient()
 
-        console.log(`[Files API] Fetching files for account: ${account.name} (${account.id}), path: ${path || 'root'}`)
+        console.log(`[Files API] Fetching files for account: ${account.name} (${account.id}), is_active: ${account.is_active}, path: ${path || 'root'}`)
+        console.log(`[Files API] Using Dropbox account_id: ${account.account_id}`)
+
+        // Prevent caching
+        setHeader(event, 'Cache-Control', 'no-store, no-cache, must-revalidate')
+        setHeader(event, 'Pragma', 'no-cache')
 
         setHeader(event, 'X-Active-Account-Name', account.name)
         setHeader(event, 'X-Active-Account-Id', account.id)

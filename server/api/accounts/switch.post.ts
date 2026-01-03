@@ -11,7 +11,9 @@ export default defineEventHandler(async (event) => {
         })
     }
 
-    const success = setActiveAccount(accountId)
+    console.log(`[Switch API] Switching to account: ${accountId}`)
+    const success = await setActiveAccount(accountId)
+    console.log(`[Switch API] Switch result: ${success}`)
 
     if (!success) {
         throw createError({
