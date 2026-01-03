@@ -23,19 +23,19 @@
             @click="handleSwitchAccount(account.id)"
             :class="[
               'w-full flex items-center gap-2 px-2 py-1.5 rounded-md text-sm transition-colors text-left',
-              account.isActive 
+              account.id === activeAccountId 
                 ? 'bg-primary text-primary-foreground' 
                 : 'hover:bg-muted text-foreground'
             ]"
           >
             <div :class="[
               'h-6 w-6 rounded-full flex items-center justify-center text-xs font-bold shrink-0',
-              account.isActive ? 'bg-primary-foreground/20 text-primary-foreground' : 'bg-muted text-muted-foreground'
+              account.id === activeAccountId ? 'bg-primary-foreground/20 text-primary-foreground' : 'bg-muted text-muted-foreground'
             ]">
               {{ account.name.charAt(0).toUpperCase() }}
             </div>
             <span class="truncate flex-1">{{ account.name }}</span>
-            <Icon v-if="account.isActive" name="lucide:check" class="h-4 w-4 shrink-0" />
+            <Icon v-if="account.id === activeAccountId" name="lucide:check" class="h-4 w-4 shrink-0" />
           </button>
         </div>
         
