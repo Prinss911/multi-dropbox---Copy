@@ -121,42 +121,59 @@
       <!-- Active Account & Combined Storage -->
       <div class="p-3 border-t space-y-3">
         <!-- Combined Storage (All Accounts) -->
-        <div class="bg-gradient-to-br from-blue-500/10 to-purple-500/10 rounded-lg p-3 space-y-2">
-          <div class="flex items-center gap-2">
-            <Icon name="lucide:database" class="h-4 w-4 text-primary" />
-            <span class="text-xs font-semibold uppercase tracking-wider">Total Storage</span>
+        <div class="bg-gradient-to-br from-blue-500/10 to-purple-500/10 rounded-lg p-3 space-y-2 group cursor-pointer" @click="showStorageDetails = !showStorageDetails">
+          <div class="flex items-center justify-between">
+            <div class="flex items-center gap-2">
+              <Icon name="lucide:database" class="h-4 w-4 text-primary" />
+              <span class="text-xs font-semibold uppercase tracking-wider">Storage</span>
+            </div>
+            <Icon 
+              :name="showStorageDetails ? 'lucide:chevron-up' : 'lucide:chevron-down'" 
+              class="h-3 w-3 text-muted-foreground transition-transform duration-200"
+              :class="showStorageDetails ? '' : '-rotate-90 md:rotate-0 md:opacity-0 md:group-hover:opacity-100'"
+            />
           </div>
           
           <div v-if="combinedStorage" class="space-y-2">
-            <div class="flex items-center justify-between">
-              <span class="text-2xl font-bold">{{ formatBytes(combinedStorage.totalUsed) }}</span>
-              <span class="text-xs text-muted-foreground">of {{ formatBytes(combinedStorage.totalAllocated) }}</span>
+            <div class="flex flex-col gap-1">
+              <div class="flex items-baseline gap-1.5 flex-wrap">
+                <span class="text-lg font-bold leading-none">{{ formatBytes(combinedStorage.totalUsed) }}</span>
+                <span class="text-xs text-muted-foreground whitespace-nowrap">of {{ formatBytes(combinedStorage.totalAllocated) }}</span>
+              </div>
             </div>
-            <div class="w-full bg-muted rounded-full h-2">
+            
+            <div class="w-full bg-muted rounded-full h-1.5 overflow-hidden">
               <div 
-                class="h-2 rounded-full transition-all duration-300 bg-gradient-to-r from-blue-500 to-purple-500"
+                class="h-full rounded-full transition-all duration-300 bg-gradient-to-r from-blue-500 to-purple-500"
                 :style="{ width: combinedStoragePercentage + '%' }"
               ></div>
             </div>
-            <div class="text-xs text-muted-foreground">
-              {{ combinedStoragePercentage.toFixed(1) }}% used across {{ combinedStorage.accounts.length }} account(s)
-            </div>
             
-            <!-- Per-account breakdown (scrollable) -->
-            <div class="pt-2 space-y-1.5 border-t border-border/50 mt-2 max-h-20 overflow-auto">
-              <div 
-                v-for="acc in combinedStorage.accounts" 
-                :key="acc.accountId"
-                class="flex items-center justify-between text-xs"
-              >
-                <span class="text-muted-foreground truncate flex-1">{{ acc.accountName }}</span>
-                <span class="font-medium ml-2">{{ formatBytes(acc.used) }}</span>
+            <!-- Details (Collapsible) -->
+            <div 
+              class="grid transition-all duration-300 ease-in-out"
+              :class="showStorageDetails ? 'grid-rows-[1fr] opacity-100 pt-2 border-t border-border/50 mt-1' : 'grid-rows-[0fr] opacity-0'"
+            >
+              <div class="overflow-hidden space-y-2">
+                <div class="text-xs text-muted-foreground">
+                  {{ combinedStoragePercentage.toFixed(1) }}% used across {{ combinedStorage.accounts.length }} account(s)
+                </div>
+                <div class="space-y-1.5 max-h-32 overflow-auto custom-scrollbar">
+                  <div 
+                    v-for="acc in combinedStorage.accounts" 
+                    :key="acc.accountId"
+                    class="flex items-center justify-between text-xs"
+                  >
+                    <span class="text-muted-foreground truncate flex-1 pr-2">{{ acc.accountName }}</span>
+                    <span class="font-medium whitespace-nowrap">{{ formatBytes(acc.used) }}</span>
+                  </div>
+                </div>
               </div>
             </div>
           </div>
           <div v-else-if="isLoadingStorage" class="flex items-center gap-2 text-xs text-muted-foreground py-2">
             <Icon name="lucide:loader-2" class="h-4 w-4 animate-spin" />
-            Loading storage info...
+            Wait...
           </div>
         </div>
         
@@ -351,6 +368,7 @@ interface CombinedStorageInfo {
 }
 const combinedStorage = ref<CombinedStorageInfo | null>(null)
 const isLoadingStorage = ref(false)
+const showStorageDetails = ref(false)
 
 const fetchStorageInfo = async () => {
   isLoadingStorage.value = true
