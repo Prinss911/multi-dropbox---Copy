@@ -3,17 +3,7 @@ export const useAuth = () => {
     const client = useSupabaseClient()
     const role = useState<string | null>('user-role', () => null)
 
-    // Fetch role on init or user change - only on client side
-    if (import.meta.client) {
-        watch(user, async (u) => {
-            if (u) {
-                await fetchRole()
-            } else {
-                role.value = null
-            }
-        }, { immediate: true })
-    }
-
+    // Define fetchRole first to avoid TDZ error
     const fetchRole = async () => {
         if (!user.value) return
 
@@ -34,6 +24,17 @@ export const useAuth = () => {
         if (data) {
             role.value = data.role
         }
+    }
+
+    // Fetch role on init or user change - only on client side
+    if (import.meta.client) {
+        watch(user, async (u) => {
+            if (u) {
+                await fetchRole()
+            } else {
+                role.value = null
+            }
+        }, { immediate: true })
     }
 
     const isAdmin = computed(() => role.value === 'admin')
