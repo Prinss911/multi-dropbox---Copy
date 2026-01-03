@@ -64,7 +64,7 @@ definePageMeta({
   layout: false
 })
 
-const { login } = useAuth()
+const { login, fetchRole, isAdmin } = useAuth()
 const email = ref('')
 const password = ref('')
 const isLoading = ref(false)
@@ -77,7 +77,16 @@ const handleLogin = async () => {
   
   try {
     await login(email.value, password.value)
-    router.push('/')
+    
+    // Wait for role to be fetched
+    await fetchRole()
+    
+    // Redirect based on role
+    if (isAdmin.value) {
+      router.push('/files')
+    } else {
+      router.push('/user')
+    }
   } catch (err: any) {
     error.value = err.message || 'Invalid credentials'
   } finally {
