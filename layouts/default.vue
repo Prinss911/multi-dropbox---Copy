@@ -145,6 +145,28 @@
           </nav>
       </div>
       
+      <!-- User Profile & Logout -->
+      <div class="p-3 border-t">
+        <div class="flex items-center gap-3 mb-3">
+          <div class="h-8 w-8 rounded-full bg-gradient-to-br from-primary to-primary/60 flex items-center justify-center text-primary-foreground font-bold text-sm">
+            {{ user?.email?.charAt(0).toUpperCase() || 'U' }}
+          </div>
+          <div class="flex-1 min-w-0">
+            <p class="text-sm font-medium truncate">{{ user?.email || 'User' }}</p>
+            <p class="text-xs text-muted-foreground">{{ isAdmin ? 'Administrator' : 'User' }}</p>
+          </div>
+        </div>
+        <UiButton 
+          variant="outline" 
+          size="sm" 
+          class="w-full text-xs h-8"
+          @click="handleLogout"
+        >
+          <Icon name="lucide:log-out" class="h-3.5 w-3.5 mr-2" />
+          Logout
+        </UiButton>
+      </div>
+      
       <!-- Active Account & Combined Storage -->
       <div class="p-3 border-t space-y-3">
         <!-- Combined Storage (All Accounts) -->
@@ -365,7 +387,17 @@
 
 <script setup lang="ts">
 const route = useRoute()
-const { isAdmin } = useAuth()
+const { user, isAdmin, logout } = useAuth()
+
+// Handle logout
+const handleLogout = async () => {
+  try {
+    await logout()
+  } catch (err) {
+    console.error('Logout failed:', err)
+  }
+}
+
 
 const {
   accounts,

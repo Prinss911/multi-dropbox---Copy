@@ -35,13 +35,24 @@
               Forgot password?
             </a>
           </div>
-          <UiInput 
-            id="password" 
-            v-model="password" 
-            type="password" 
-            required 
-            :disabled="isLoading"
-          />
+          <div class="relative">
+            <UiInput 
+              id="password" 
+              v-model="password" 
+              :type="showPassword ? 'text' : 'password'" 
+              required 
+              :disabled="isLoading"
+              class="pr-10"
+            />
+            <button
+              type="button"
+              class="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors"
+              @click="showPassword = !showPassword"
+              tabindex="-1"
+            >
+              <Icon :name="showPassword ? 'lucide:eye-off' : 'lucide:eye'" class="h-4 w-4" />
+            </button>
+          </div>
         </div>
 
         <UiButton class="w-full" type="submit" :disabled="isLoading">
@@ -68,6 +79,7 @@ const { login, fetchRole, isAdmin } = useAuth()
 const email = ref('')
 const password = ref('')
 const isLoading = ref(false)
+const showPassword = ref(false)
 const error = ref('')
 const router = useRouter()
 
