@@ -1,4 +1,5 @@
 import { createShare, cleanExpiredShares } from '../../utils/shares'
+import { getAccountById, getActiveAccount } from '../../utils/accounts'
 
 export default defineEventHandler(async (event) => {
     const body = await readBody(event)
@@ -25,8 +26,15 @@ export default defineEventHandler(async (event) => {
     }
 
     try {
-        const { getActiveClient } = useDropboxServer()
-        const { account } = await getActiveClient()
+        let account
+
+        if (body.accountId) {
+            account = await getAccountById(body.accountId)
+            if (!account) throw createError({ statusCode: 404, statusMessage: 'Account not found' })
+        } else {
+            account = await getActiveAccount()
+            if (!account) throw createError({ statusCode: 400, statusMessage: 'No active account' })
+        }
 
         // Clean expired shares first
         await cleanExpiredShares()

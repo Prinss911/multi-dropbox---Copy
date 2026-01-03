@@ -131,9 +131,37 @@ export async function cleanExpiredShares(): Promise<void> {
     const supabase = useSupabase()
     const now = new Date().toISOString()
 
-    await supabase
-        .from('shares')
         .delete()
         .lt('expires_at', now)
+}
+
+export async function findActiveShare(accountId: string, filePath: string): Promise<ShareLink | null> {
+    const supabase = useSupabase()
+    const now = new Date().toISOString()
+
+    const { data, error } = await supabase
+        .from('shares')
+        .select('*')
+        .eq('account_id', accountId)
+        .eq('file_path', filePath)
+        .gt('expires_at', now)
+        .order('expires_at', { ascending: false }) // Get the one expiring latest if multiple
+        .limit(1)
+        .single()
+
+    if (error || !data) return null
+
+    return {
+        id: data.id,
+        fileId: data.file_id,
+        fileName: data.file_name,
+        filePath: data.file_path,
+        files: data.files || [],
+        accountId: data.account_id,
+        accountName: data.account_name,
+        createdAt: data.created_at,
+        expiresAt: data.expires_at,
+        downloadCount: data.download_count
+    }
 }
 

@@ -455,8 +455,13 @@
             <Icon name="lucide:share-2" class="h-5 w-5 text-blue-600" />
             Share File
           </h2>
+
+          <div v-if="isCheckingShare" class="flex flex-col items-center justify-center py-8 text-muted-foreground gap-2">
+             <Icon name="lucide:loader-2" class="h-8 w-8 animate-spin" />
+             <p>Checking active links...</p>
+          </div>
           
-          <div v-if="!shareResult" class="space-y-4">
+          <div v-else-if="!shareResult" class="space-y-4">
             <div class="text-sm text-muted-foreground">
               <span class="font-medium text-foreground">{{ shareFile?.name }}</span>
             </div>
@@ -496,9 +501,9 @@
           </div>
           
           <div v-else class="space-y-4">
-            <div class="flex items-center gap-2 text-green-600">
-              <Icon name="lucide:check-circle" class="h-5 w-5" />
-              <span class="font-medium">Link created!</span>
+            <div class="flex items-center gap-2" :class="shareResult.isExisting ? 'text-blue-600' : 'text-green-600'">
+              <Icon :name="shareResult.isExisting ? 'lucide:link' : 'lucide:check-circle'" class="h-5 w-5" />
+              <span class="font-medium">{{ shareResult.isExisting ? 'Active Link Found' : 'Link created!' }}</span>
             </div>
             
             <div class="flex gap-2">
@@ -520,7 +525,7 @@
               Expires: {{ new Date(shareResult.expiresAt).toLocaleString() }}
             </p>
             
-            <UiButton class="w-full" @click="showShareModal = false; shareResult = null">
+            <UiButton class="w-full" @click="showShareModal = false">
               Done
             </UiButton>
           </div>
@@ -984,13 +989,42 @@ const shareExpirationOptions = [
   { days: 30, unit: 'days', label: '1 Month' }
 ]
 
-const handleShare = (entry: any) => {
+const isCheckingShare = ref(false)
+
+const handleShare = async (entry: any) => {
   shareFile.value = entry
   shareResult.value = null
   shareExpiration.value = 7
   // Reset unit to days by default, user can select seconds
   shareExpirationUnit.value = 'days' 
   showShareModal.value = true
+  
+  await checkExistingShare()
+}
+
+const checkExistingShare = async () => {
+  if (!shareFile.value) return
+  isCheckingShare.value = true
+  try {
+    const response = await $fetch<{ shares: any[] }>('/api/shares', {
+      query: {
+        accountId: props.accountId || activeAccountId.value,
+        filePath: shareFile.value.path,
+        findOne: 'true'
+      }
+    })
+    
+    if (response.shares && response.shares.length > 0) {
+      shareResult.value = {
+        ...response.shares[0],
+        isExisting: true
+      }
+    }
+  } catch (err) {
+    console.warn('Failed to check existing share:', err)
+  } finally {
+    isCheckingShare.value = false
+  }
 }
 
 const shareExpirationUnit = ref('days') // Track selected unit
