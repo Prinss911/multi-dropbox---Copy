@@ -1,218 +1,255 @@
 <template>
-  <div class="space-y-4">
-    <!-- Header -->
-    <div class="flex items-center justify-between flex-wrap gap-4">
-      <div>
-        <h1 class="text-2xl font-semibold">Shared Links</h1>
-        <p class="text-sm text-muted-foreground">
-          {{ total }} active share links
-        </p>
+  <div class="h-full flex flex-col bg-background/50">
+    <!-- Sticky Header & Controls -->
+    <div class="sticky top-0 z-20 bg-background/95 backdrop-blur border-b px-6 py-4">
+      <div class="w-full">
+        <div class="flex flex-col md:flex-row md:items-center justify-between gap-4">
+           <div>
+             <h1 class="text-xl font-semibold text-[#1E1919] dark:text-foreground">Shared Links</h1>
+             <p class="text-sm text-muted-foreground">{{ total }} active links across all accounts</p>
+           </div>
+           <!-- Rest of header content -->
+           <!-- ... -->
+           <!-- Toolbar -->
+           <div class="flex flex-wrap items-center gap-3">
+              <!-- Search -->
+              <div class="relative group">
+                <Icon name="lucide:search" class="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground group-focus-within:text-primary transition-colors" />
+                <input 
+                  v-model="searchQuery"
+                  type="text"
+                  placeholder="Search links..."
+                  class="h-10 pl-9 pr-4 w-full md:w-64 rounded-full border bg-muted/20 hover:bg-muted/40 focus:bg-background focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all text-sm"
+                />
+              </div>
+
+              <div class="h-6 w-px bg-border mx-1 hidden md:block"></div>
+
+              <!-- Filter Account -->
+              <div class="relative">
+                 <select 
+                  v-model="filterAccount" 
+                  class="h-10 pl-3 pr-8 rounded-full border bg-muted/20 hover:bg-muted/40 text-sm focus:ring-2 focus:ring-blue-500/20 outline-none appearance-none cursor-pointer min-w-[140px]"
+                >
+                  <option value="">All Accounts</option>
+                  <option v-for="acc in accounts" :key="acc.id" :value="acc.id">
+                    {{ acc.name }}
+                  </option>
+                </select>
+                <Icon name="lucide:chevron-down" class="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground pointer-events-none" />
+              </div>
+
+               <!-- Filter Status -->
+              <div class="relative">
+                 <select 
+                  v-model="filterStatus" 
+                  class="h-10 pl-3 pr-8 rounded-full border bg-muted/20 hover:bg-muted/40 text-sm focus:ring-2 focus:ring-blue-500/20 outline-none appearance-none cursor-pointer"
+                >
+                  <option value="">All Status</option>
+                  <option value="active">Active</option>
+                  <option value="expired">Expired</option>
+                  <option value="never">Never Expires</option>
+                </select>
+                <Icon name="lucide:filter" class="absolute right-3 top-1/2 -translate-y-1/2 h-3 w-3 text-muted-foreground pointer-events-none" />
+              </div>
+
+              <button 
+                @click="() => refresh()" 
+                :disabled="pending"
+                class="h-10 w-10 flex items-center justify-center rounded-full hover:bg-muted transition-colors text-muted-foreground"
+              >
+                <Icon :name="pending ? 'lucide:loader-2' : 'lucide:refresh-cw'" :class="{ 'animate-spin': pending }" class="h-4 w-4" />
+              </button>
+           </div>
+        </div>
       </div>
-      <div class="flex items-center gap-2">
-        <!-- Search -->
-        <div class="relative">
-          <Icon name="lucide:search" class="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-          <input 
-            v-model="searchQuery"
-            type="text"
-            placeholder="Search files..."
-            class="h-9 pl-9 pr-3 w-48 rounded-md border bg-background text-sm"
-          />
+    </div>
+
+    <!-- Main Content -->
+    <div class="flex-1 overflow-auto px-4 md:px-6 py-6 transition-all">
+       <div class="w-full h-full">
+
+        <!-- Loading -->
+        <div v-if="pending" class="h-full flex flex-col items-center justify-center text-muted-foreground">
+          <Icon name="lucide:loader-2" class="animate-spin h-8 w-8 text-[#0061FE] mb-4" />
+          <p class="text-sm">Loading share links...</p>
         </div>
 
-        <!-- Account Filter -->
-        <select 
-          v-model="filterAccount" 
-          class="h-9 px-3 rounded-md border bg-background text-sm"
-        >
-          <option value="">All Accounts</option>
-          <option v-for="acc in accounts" :key="acc.id" :value="acc.id">
-            {{ acc.name }}
-          </option>
-        </select>
+        <!-- Error -->
+        <div v-else-if="error" class="p-6 rounded-lg bg-red-50 text-red-600 border border-red-100 text-center mx-auto max-w-lg mt-10">
+           <Icon name="lucide:alert-circle" class="h-8 w-8 mb-2 mx-auto" />
+           <h3 class="font-medium">Failed to load shares</h3>
+           <p class="text-sm opacity-80 mt-1">{{ error.message }}</p>
+        </div>
 
-        <!-- Status Filter -->
-        <select 
-          v-model="filterStatus" 
-          class="h-9 px-3 rounded-md border bg-background text-sm"
-        >
-          <option value="">All Status</option>
-          <option value="active">Active</option>
-          <option value="expired">Expired</option>
-          <option value="never">Never Expires</option>
-        </select>
-        
-        <UiButton variant="outline" size="sm" @click="refresh" :disabled="pending">
-          <Icon :name="pending ? 'lucide:loader-2' : 'lucide:refresh-cw'" :class="{ 'animate-spin': pending }" class="h-4 w-4" />
-        </UiButton>
-      </div>
-    </div>
+        <!-- Empty State -->
+        <div v-else-if="filteredShares.length === 0" class="h-full flex flex-col items-center justify-center p-12 text-center">
+          <div class="h-24 w-24 mb-4 flex items-center justify-center rounded-full bg-muted/30 text-muted-foreground">
+             <Icon name="lucide:link-2-off" class="h-10 w-10 opacity-50" />
+          </div>
+          <h3 class="text-lg font-semibold text-[#1E1919] dark:text-foreground mb-2">No share links found</h3>
+          <p class="text-muted-foreground text-sm max-w-xs">
+            {{ searchQuery || filterAccount || filterStatus ? 'Try adjusting your filters.' : 'You haven\'t created any share links yet.' }}
+          </p>
+           <button 
+            v-if="searchQuery || filterAccount || filterStatus"
+            @click="searchQuery = ''; filterAccount = ''; filterStatus = ''"
+            class="mt-4 text-[#0061FE] text-sm hover:underline"
+          >
+            Clear all filters
+          </button>
+        </div>
 
-    <!-- Loading State -->
-    <div v-if="pending" class="text-center py-12">
-      <Icon name="lucide:loader-2" class="animate-spin h-8 w-8 text-primary mx-auto" />
-      <p class="mt-2 text-sm text-muted-foreground">Loading share links...</p>
-    </div>
+        <!-- Shares Table -->
+        <div v-else class="w-full pb-8">
+           <table class="w-full text-left border-collapse">
+            <thead class="sticky top-0 bg-background/95 backdrop-blur z-10">
+              <tr>
+                <th class="py-3 px-4 text-xs font-semibold text-muted-foreground uppercase tracking-wider border-b w-[40%]">File Info</th>
+                <th class="py-3 px-4 text-xs font-semibold text-muted-foreground uppercase tracking-wider border-b w-32 hidden sm:table-cell">Account</th>
+                <th class="py-3 px-4 text-xs font-semibold text-muted-foreground uppercase tracking-wider border-b hidden md:table-cell">Created</th>
+                <th class="py-3 px-4 text-xs font-semibold text-muted-foreground uppercase tracking-wider border-b">Status / Expires</th>
+                <th class="py-3 px-4 text-xs font-semibold text-muted-foreground uppercase tracking-wider border-b w-24 hidden lg:table-cell">Downloads</th>
+                <th class="py-3 px-4 text-right text-xs font-semibold text-muted-foreground uppercase tracking-wider border-b w-32">Actions</th>
+              </tr>
+            </thead>
+            <tbody class="divide-y divide-border/40">
+              <tr v-for="share in paginatedShares" :key="share.id" class="group hover:bg-[#F7F9FA] dark:hover:bg-muted/20 transition-colors">
+                <td class="py-3 px-4">
+                  <div class="flex items-center gap-4">
+                    <div class="relative shrink-0">
+                       <Icon :name="getFileIcon(getExtension(share.fileName))" :class="['h-8 w-8', getIconColor(getExtension(share.fileName))]" />
+                    </div>
+                    <div class="min-w-0">
+                      <p class="font-medium text-sm text-[#1E1919] dark:text-foreground truncate" :title="share.fileName">{{ share.fileName }}</p>
+                      <p class="text-xs text-muted-foreground font-mono truncate opacity-60 mt-0.5">ID: {{ share.id.substring(0, 8) }}...</p>
+                    </div>
+                  </div>
+                </td>
+                <td class="py-3 px-4 hidden sm:table-cell">
+                   <span 
+                       class="inline-flex items-center gap-1.5 px-2 py-0.5 rounded text-xs font-medium"
+                       :style="{ 
+                          backgroundColor: getAccountColor(share.accountId) + '15', 
+                          color: getAccountColor(share.accountId)
+                       }"
+                    >
+                       <span class="w-1.5 h-1.5 rounded-full" :style="{ backgroundColor: getAccountColor(share.accountId) }"></span>
+                       {{ share.accountName }}
+                    </span>
+                </td>
+                <td class="py-3 px-4 text-sm text-muted-foreground hidden md:table-cell">
+                  {{ formatDate(share.createdAt) }}
+                </td>
+                <td class="py-3 px-4">
+                   <span 
+                      class="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-medium bg-secondary"
+                      :class="getExpiryClass(share.expiresAt)"
+                   >
+                      <span class="h-1.5 w-1.5 rounded-full bg-current opacity-60"></span>
+                      {{ formatExpiry(share.expiresAt) }}
+                   </span>
+                </td>
+                <td class="py-3 px-4 text-sm hidden lg:table-cell text-muted-foreground">
+                  <div class="flex items-center gap-1.5">
+                    <Icon name="lucide:download" class="h-3 w-3 opacity-50" />
+                    <span class="font-mono">{{ share.downloadCount }}</span>
+                  </div>
+                </td>
+                <td class="py-3 px-4 text-right">
+                  <div class="flex items-center justify-end gap-1 opacity-100 sm:opacity-0 group-hover:opacity-100 transition-opacity">
+                    <button 
+                      @click="() => openShare(share)"
+                      title="Open Link"
+                      class="h-8 w-8 flex items-center justify-center rounded hover:bg-white hover:text-[#0061FE] hover:shadow-sm transition-all text-muted-foreground"
+                    >
+                      <Icon name="lucide:external-link" class="h-4 w-4" />
+                    </button>
+                    <button 
+                      @click="() => copyLink(share)"
+                      title="Copy Link"
+                      class="h-8 w-8 flex items-center justify-center rounded hover:bg-white hover:text-green-600 hover:shadow-sm transition-all text-muted-foreground"
+                    >
+                      <Icon :name="copiedId === share.id ? 'lucide:check' : 'lucide:copy'" class="h-4 w-4" />
+                    </button>
+                    <button 
+                      @click="() => confirmDelete(share)"
+                      title="Delete Link"
+                      class="h-8 w-8 flex items-center justify-center rounded hover:bg-white hover:text-red-600 hover:shadow-sm transition-all text-muted-foreground"
+                    >
+                      <Icon name="lucide:trash-2" class="h-4 w-4" />
+                    </button>
+                  </div>
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
 
-    <!-- Error State -->
-    <div v-else-if="error" class="bg-destructive/10 border border-destructive/20 rounded-lg p-4">
-      <div class="flex items-center gap-2 text-destructive">
-        <Icon name="lucide:alert-circle" class="h-5 w-5" />
-        <span>{{ error.message || 'Failed to load shares' }}</span>
-      </div>
-    </div>
-
-    <!-- Empty State -->
-    <div v-else-if="filteredShares.length === 0" class="text-center py-12 bg-card rounded-lg border">
-      <Icon name="lucide:link-2-off" class="mx-auto h-12 w-12 text-muted-foreground" />
-      <h3 class="mt-4 text-lg font-medium">No share links found</h3>
-      <p class="mt-1 text-sm text-muted-foreground">
-        {{ searchQuery || filterAccount || filterStatus ? 'Try adjusting your filters.' : 'No files have been shared yet.' }}
-      </p>
-    </div>
-
-    <!-- Shares Table -->
-    <div v-else class="bg-card rounded-lg border overflow-hidden">
-      <table class="w-full">
-        <thead class="bg-muted/50">
-          <tr>
-            <th class="px-4 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider">File</th>
-            <th class="px-4 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider">Account</th>
-            <th class="px-4 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider hidden md:table-cell">Created</th>
-            <th class="px-4 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider">Expires</th>
-            <th class="px-4 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider hidden sm:table-cell">Downloads</th>
-            <th class="px-4 py-3 text-right text-xs font-medium text-muted-foreground uppercase tracking-wider">Actions</th>
-          </tr>
-        </thead>
-        <tbody class="divide-y divide-border">
-          <tr v-for="share in paginatedShares" :key="share.id" class="hover:bg-muted/30 transition-colors">
-            <td class="px-4 py-3">
-              <div class="flex items-center gap-3">
-                <div :class="['h-10 w-10 rounded-lg flex items-center justify-center shrink-0', getIconColor(getExtension(share.fileName))]">
-                  <Icon :name="getFileIcon(getExtension(share.fileName))" class="h-5 w-5" />
-                </div>
-                <div class="min-w-0">
-                  <p class="font-medium truncate max-w-[200px]" :title="share.fileName">{{ share.fileName }}</p>
-                  <p class="text-xs text-muted-foreground font-mono truncate max-w-[200px]">{{ share.id }}</p>
-                </div>
-              </div>
-            </td>
-            <td class="px-4 py-3">
-              <span 
-                class="inline-flex px-2 py-1 rounded text-xs font-medium text-white"
-                :style="{ backgroundColor: getAccountColor(share.accountId) }"
+        <!-- Pagination -->
+        <div v-if="totalPages > 1" class="flex justify-center mt-4 pb-8">
+           <div class="flex items-center gap-1 bg-muted/30 p-1 rounded-full">
+              <button 
+                 @click="currentPage--"
+                 :disabled="currentPage === 1"
+                 class="h-8 w-8 flex items-center justify-center rounded-full hover:bg-background disabled:opacity-50 transition-all text-muted-foreground"
               >
-                {{ share.accountName }}
-              </span>
-            </td>
-            <td class="px-4 py-3 text-sm text-muted-foreground hidden md:table-cell">
-              {{ formatDate(share.createdAt) }}
-            </td>
-            <td class="px-4 py-3">
-              <span :class="getExpiryClass(share.expiresAt)">
-                {{ formatExpiry(share.expiresAt) }}
-              </span>
-            </td>
-            <td class="px-4 py-3 text-sm hidden sm:table-cell">
-              <div class="flex items-center gap-1">
-                <Icon name="lucide:download" class="h-4 w-4 text-muted-foreground" />
-                <span>{{ share.downloadCount }}</span>
+                 <Icon name="lucide:chevron-left" class="h-4 w-4" />
+              </button>
+              <div class="px-4 text-xs font-medium text-muted-foreground">
+                 Page {{ currentPage }} of {{ totalPages }}
               </div>
-            </td>
-            <td class="px-4 py-3 text-right">
-              <div class="flex items-center justify-end gap-1">
-                <UiButton 
-                  variant="ghost" 
-                  size="icon" 
-                  class="h-8 w-8"
-                  title="Open"
-                  @click="openShare(share)"
-                >
-                  <Icon name="lucide:external-link" class="h-4 w-4" />
-                </UiButton>
-                <UiButton 
-                  variant="ghost" 
-                  size="icon" 
-                  class="h-8 w-8"
-                  title="Copy Link"
-                  @click="copyLink(share)"
-                >
-                  <Icon :name="copiedId === share.id ? 'lucide:check' : 'lucide:copy'" class="h-4 w-4" />
-                </UiButton>
-                <UiButton 
-                  variant="ghost" 
-                  size="icon" 
-                  class="h-8 w-8 text-destructive hover:text-destructive"
-                  title="Delete"
-                  @click="confirmDelete(share)"
-                >
-                  <Icon name="lucide:trash-2" class="h-4 w-4" />
-                </UiButton>
-              </div>
-            </td>
-          </tr>
-        </tbody>
-      </table>
+              <button 
+                 @click="currentPage++"
+                 :disabled="currentPage === totalPages"
+                 class="h-8 w-8 flex items-center justify-center rounded-full hover:bg-background disabled:opacity-50 transition-all text-muted-foreground"
+              >
+                 <Icon name="lucide:chevron-right" class="h-4 w-4" />
+              </button>
+           </div>
+        </div>
+
+       </div>
     </div>
 
-    <!-- Pagination -->
-    <div v-if="totalPages > 1" class="flex items-center justify-between">
-      <p class="text-sm text-muted-foreground">
-        Showing {{ (currentPage - 1) * pageSize + 1 }} - {{ Math.min(currentPage * pageSize, filteredShares.length) }} of {{ filteredShares.length }}
-      </p>
-      <div class="flex items-center gap-2">
-        <UiButton 
-          variant="outline" 
-          size="sm" 
-          :disabled="currentPage === 1"
-          @click="currentPage--"
-        >
-          <Icon name="lucide:chevron-left" class="h-4 w-4" />
-        </UiButton>
-        <span class="text-sm">Page {{ currentPage }} of {{ totalPages }}</span>
-        <UiButton 
-          variant="outline" 
-          size="sm" 
-          :disabled="currentPage === totalPages"
-          @click="currentPage++"
-        >
-          <Icon name="lucide:chevron-right" class="h-4 w-4" />
-        </UiButton>
-      </div>
-    </div>
-
-    <!-- Delete Confirmation Modal -->
+    <!-- Delete Confirmation Modal (Clean) -->
     <Teleport to="body">
       <div 
         v-if="deleteTarget" 
-        class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm"
+        class="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-[#1E1919]/60 backdrop-blur-[2px]"
         @click.self="deleteTarget = null"
       >
-        <div class="bg-card w-full max-w-sm rounded-lg shadow-lg border p-6">
-          <div class="flex items-center gap-3 mb-4">
-            <div class="p-2 rounded-full bg-destructive/10">
-              <Icon name="lucide:alert-triangle" class="h-5 w-5 text-destructive" />
-            </div>
-            <h3 class="font-semibold text-lg">Delete Share Link</h3>
-          </div>
-          <p class="text-muted-foreground mb-6">
-            Are you sure you want to delete the share link for <strong>{{ deleteTarget.fileName }}</strong>?
-            <br><br>
-            <span class="text-destructive text-sm">This will make the link inaccessible.</span>
-          </p>
-          <div class="flex gap-3 justify-end">
-            <UiButton variant="outline" @click="deleteTarget = null">
-              Cancel
-            </UiButton>
-            <UiButton 
-              variant="destructive"
-              :disabled="isDeleting"
-              @click="handleDelete"
-            >
-              <Icon v-if="isDeleting" name="lucide:loader-2" class="h-4 w-4 mr-2 animate-spin" />
-              Delete
-            </UiButton>
-          </div>
+        <div class="bg-card w-full max-w-[400px] rounded-xl shadow-2xl border-0 overflow-hidden animate-in fade-in zoom-in-95 duration-200 p-6">
+           <div class="flex flex-col items-center text-center gap-4">
+              <div class="h-12 w-12 rounded-full bg-red-50 flex items-center justify-center text-red-600 mb-2">
+                 <Icon name="lucide:alert-triangle" class="h-6 w-6" />
+              </div>
+              <div>
+                 <h3 class="text-lg font-semibold text-[#1E1919] dark:text-foreground">Delete Share Link?</h3>
+                 <p class="text-sm text-muted-foreground mt-2 px-4">
+                    This will permanently remove the share link for <br>
+                    <span class="font-medium text-foreground">{{ deleteTarget.fileName }}</span>.
+                 </p>
+                 <p class="text-xs text-red-500/80 mt-2 font-medium">This action cannot be undone.</p>
+              </div>
+              
+              <div class="flex gap-3 w-full mt-2">
+                 <button 
+                    @click="deleteTarget = null"
+                    class="flex-1 h-10 rounded-lg border hover:bg-muted transition-colors text-sm font-medium"
+                 >
+                    Cancel
+                 </button>
+                 <button 
+                    @click="handleDelete"
+                    :disabled="isDeleting"
+                    class="flex-1 h-10 rounded-lg bg-red-600 hover:bg-red-700 text-white transition-colors text-sm font-medium flex items-center justify-center gap-2 disabled:opacity-70"
+                 >
+                    <Icon v-if="isDeleting" name="lucide:loader-2" class="h-4 w-4 animate-spin" />
+                    {{ isDeleting ? 'Deleting...' : 'Delete' }}
+                 </button>
+              </div>
+           </div>
         </div>
       </div>
     </Teleport>
@@ -337,18 +374,18 @@ const formatExpiry = (expiresAt: string | null): string => {
 }
 
 const getExpiryClass = (expiresAt: string | null): string => {
-  if (!expiresAt) return 'text-green-600 dark:text-green-400 text-sm font-medium'
+  if (!expiresAt) return 'bg-emerald-100 text-emerald-700 dark:bg-emerald-500/20 dark:text-emerald-400'
   
   const expiry = new Date(expiresAt)
   const now = new Date()
   
-  if (expiry <= now) return 'text-destructive text-sm font-medium'
+  if (expiry <= now) return 'bg-red-100 text-red-700 dark:bg-red-500/20 dark:text-red-400'
   
   const diff = expiry.getTime() - now.getTime()
   const days = Math.floor(diff / (1000 * 60 * 60 * 24))
   
-  if (days < 1) return 'text-amber-600 dark:text-amber-400 text-sm font-medium'
-  return 'text-muted-foreground text-sm'
+  if (days < 3) return 'bg-amber-100 text-amber-700 dark:bg-amber-500/20 dark:text-amber-400'
+  return 'bg-blue-100 text-blue-700 dark:bg-blue-500/20 dark:text-blue-400'
 }
 
 const getFileIcon = (ext: string): string => {
@@ -366,18 +403,18 @@ const getFileIcon = (ext: string): string => {
 
 const getIconColor = (ext: string): string => {
   const colorMap: Record<string, string> = {
-    pdf: 'text-red-600 bg-red-50 dark:bg-red-900/30',
-    doc: 'text-blue-600 bg-blue-50 dark:bg-blue-900/30',
-    docx: 'text-blue-600 bg-blue-50 dark:bg-blue-900/30',
-    mp4: 'text-pink-600 bg-pink-50 dark:bg-pink-900/30',
-    mkv: 'text-pink-600 bg-pink-50 dark:bg-pink-900/30',
-    jpg: 'text-purple-600 bg-purple-50 dark:bg-purple-900/30',
-    png: 'text-purple-600 bg-purple-50 dark:bg-purple-900/30',
+    pdf: 'text-red-600',
+    doc: 'text-blue-600',
+    docx: 'text-blue-600',
+    mp4: 'text-pink-600',
+    mkv: 'text-pink-600',
+    jpg: 'text-purple-600',
+    png: 'text-purple-600',
   }
-  return colorMap[ext] || 'text-gray-600 bg-gray-50 dark:bg-gray-900/30'
+  return colorMap[ext] || 'text-gray-600'
 }
 
-const accountColors = ['#3B82F6', '#10B981', '#F59E0B', '#EF4444', '#8B5CF6', '#EC4899']
+const accountColors = ['#0061FE', '#0070E0', '#007EE5', '#248CF2', '#4D9BF7', '#76ABFC']
 const getAccountColor = (accountId: string): string => {
   const index = accounts.value.findIndex(a => a.id === accountId)
   return accountColors[index % accountColors.length]
@@ -391,13 +428,17 @@ const getShareUrl = (share: ShareLink): string => {
 }
 
 const openShare = (share: ShareLink) => {
-  window.open(getShareUrl(share), '_blank')
+  if (typeof window !== 'undefined') {
+    window.open(getShareUrl(share), '_blank')
+  }
 }
 
 const copyLink = async (share: ShareLink) => {
-  await navigator.clipboard.writeText(getShareUrl(share))
-  copiedId.value = share.id
-  setTimeout(() => copiedId.value = null, 2000)
+  if (typeof window !== 'undefined' && navigator.clipboard) {
+    await navigator.clipboard.writeText(getShareUrl(share))
+    copiedId.value = share.id
+    setTimeout(() => copiedId.value = null, 2000)
+  }
 }
 
 const confirmDelete = (share: ShareLink) => {

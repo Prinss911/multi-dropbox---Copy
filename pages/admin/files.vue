@@ -1,273 +1,306 @@
 <template>
-  <div class="space-y-4">
-    <!-- Header -->
-    <div class="flex items-center justify-between flex-wrap gap-4">
-      <div>
-        <h1 class="text-2xl font-semibold">All Files</h1>
-        <p class="text-sm text-muted-foreground">
-          {{ totalFiles }} files from {{ totalAccounts }} account(s)
-        </p>
+  <div class="h-full flex flex-col bg-background/50">
+    <!-- Sticky Header & Controls -->
+    <div class="sticky top-0 z-20 bg-background/95 backdrop-blur border-b px-6 py-4">
+      <div class="w-full">
+        <div class="flex flex-col md:flex-row md:items-center justify-between gap-4">
+           <div>
+             <h1 class="text-xl font-semibold text-[#1E1919] dark:text-foreground">All Files</h1>
+             <p class="text-sm text-muted-foreground">{{ totalFiles }} files across {{ totalAccounts }} accounts</p>
+           </div>
+           <!-- ... toolbar code preserved ... -->
+           <div class="flex flex-wrap items-center gap-3">
+              <!-- Search -->
+              <div class="relative group">
+                <Icon name="lucide:search" class="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground group-focus-within:text-primary transition-colors" />
+                <input 
+                  v-model="searchQuery"
+                  type="text"
+                  placeholder="Search files..."
+                  class="h-10 pl-9 pr-4 w-full md:w-64 rounded-full border bg-muted/20 hover:bg-muted/40 focus:bg-background focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all text-sm"
+                />
+              </div>
+
+              <div class="h-6 w-px bg-border mx-1 hidden md:block"></div>
+
+              <!-- Filter Account -->
+              <div class="relative">
+                 <select 
+                  v-model="filterAccount" 
+                  class="h-10 pl-3 pr-8 rounded-full border bg-muted/20 hover:bg-muted/40 text-sm focus:ring-2 focus:ring-blue-500/20 outline-none appearance-none cursor-pointer min-w-[140px]"
+                >
+                  <option value="">All Accounts</option>
+                  <option v-for="acc in accounts" :key="acc.id" :value="acc.id">
+                    {{ acc.name }}
+                  </option>
+                </select>
+                <Icon name="lucide:chevron-down" class="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground pointer-events-none" />
+              </div>
+
+              <!-- Sort -->
+               <div class="relative">
+                 <select 
+                  v-model="sortBy" 
+                  class="h-10 pl-3 pr-8 rounded-full border bg-muted/20 hover:bg-muted/40 text-sm focus:ring-2 focus:ring-blue-500/20 outline-none appearance-none cursor-pointer"
+                >
+                  <option value="modified">Date Modified</option>
+                  <option value="name">Name (A-Z)</option>
+                  <option value="size">File Size</option>
+                </select>
+                <Icon name="lucide:arrow-up-down" class="absolute right-3 top-1/2 -translate-y-1/2 h-3 w-3 text-muted-foreground pointer-events-none" />
+              </div>
+
+              <button 
+                @click="() => refresh()" 
+                :disabled="pending"
+                class="h-10 w-10 flex items-center justify-center rounded-full hover:bg-muted transition-colors text-muted-foreground"
+              >
+                <Icon :name="pending ? 'lucide:loader-2' : 'lucide:refresh-cw'" :class="{ 'animate-spin': pending }" class="h-4 w-4" />
+              </button>
+           </div>
+        </div>
       </div>
-      <div class="flex items-center gap-2">
-        <!-- Search -->
-        <div class="relative">
-          <Icon name="lucide:search" class="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-          <input 
-            v-model="searchQuery"
-            type="text"
-            placeholder="Search files..."
-            class="h-9 pl-9 pr-3 w-48 rounded-md border bg-background text-sm"
-          />
+    </div>
+
+    <!-- Main Content -->
+    <div class="flex-1 overflow-auto px-4 md:px-6 py-6 transition-all">
+       <div class="w-full h-full">
+
+        <!-- Loading -->
+        <div v-if="pending" class="h-full flex flex-col items-center justify-center text-muted-foreground">
+          <Icon name="lucide:loader-2" class="animate-spin h-8 w-8 text-[#0061FE] mb-4" />
+          <p class="text-sm">Fetching files list...</p>
         </div>
 
-        <!-- Account Filter -->
-        <select 
-          v-model="filterAccount" 
-          class="h-9 px-3 rounded-md border bg-background text-sm"
-        >
-          <option value="">All Accounts</option>
-          <option v-for="acc in accounts" :key="acc.id" :value="acc.id">
-            {{ acc.name }}
-          </option>
-        </select>
+        <!-- Error -->
+        <div v-else-if="error" class="p-6 rounded-lg bg-red-50 text-red-600 border border-red-100 text-center mx-auto max-w-lg mt-10">
+           <Icon name="lucide:alert-circle" class="h-8 w-8 mb-2 mx-auto" />
+           <h3 class="font-medium">Failed to load files</h3>
+           <p class="text-sm opacity-80 mt-1">{{ error.message }}</p>
+        </div>
 
-        <!-- Sort -->
-        <select 
-          v-model="sortBy" 
-          class="h-9 px-3 rounded-md border bg-background text-sm"
-        >
-          <option value="modified">Newest</option>
-          <option value="name">Name</option>
-          <option value="size">Size</option>
-        </select>
-        
-        <UiButton variant="outline" size="sm" @click="refresh" :disabled="pending">
-          <Icon :name="pending ? 'lucide:loader-2' : 'lucide:refresh-cw'" :class="{ 'animate-spin': pending }" class="h-4 w-4" />
-        </UiButton>
-      </div>
-    </div>
-
-    <!-- Loading State -->
-    <div v-if="pending" class="text-center py-12">
-      <Icon name="lucide:loader-2" class="animate-spin h-8 w-8 text-primary mx-auto" />
-      <p class="mt-2 text-sm text-muted-foreground">Loading all files from accounts...</p>
-      <p class="text-xs text-muted-foreground mt-1">This may take a moment...</p>
-    </div>
-
-    <!-- Error State -->
-    <div v-else-if="error" class="bg-destructive/10 border border-destructive/20 rounded-lg p-4">
-      <div class="flex items-center gap-2 text-destructive">
-        <Icon name="lucide:alert-circle" class="h-5 w-5" />
-        <span>{{ error.message || 'Failed to load files' }}</span>
-      </div>
-    </div>
-
-    <!-- Empty State -->
-    <div v-else-if="sortedFiles.length === 0" class="text-center py-12 bg-card rounded-lg border">
-      <Icon name="lucide:file-x" class="mx-auto h-12 w-12 text-muted-foreground" />
-      <h3 class="mt-4 text-lg font-medium">No files found</h3>
-      <p class="mt-1 text-sm text-muted-foreground">
-        {{ searchQuery || filterAccount ? 'Try adjusting your filters.' : 'No files uploaded yet across all accounts.' }}
-      </p>
-    </div>
-
-    <!-- Files Grid/Table -->
-    <div v-else class="bg-card rounded-lg border overflow-hidden">
-      <table class="w-full">
-        <thead class="bg-muted/50">
-          <tr>
-            <th class="px-4 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider">File</th>
-            <th class="px-4 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider">Account</th>
-            <th class="px-4 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider hidden sm:table-cell">Location</th>
-            <th class="px-4 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider hidden md:table-cell">Size</th>
-            <th class="px-4 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider hidden lg:table-cell">Modified</th>
-            <th class="px-4 py-3 text-right text-xs font-medium text-muted-foreground uppercase tracking-wider">Actions</th>
-          </tr>
-        </thead>
-        <tbody class="divide-y divide-border">
-          <tr 
-            v-for="file in paginatedFiles" 
-            :key="file.id" 
-            class="hover:bg-muted/30 transition-colors"
+        <!-- Empty State -->
+        <div v-else-if="sortedFiles.length === 0" class="h-full flex flex-col items-center justify-center p-12 text-center">
+          <div class="h-24 w-24 mb-4 flex items-center justify-center rounded-full bg-muted/30 text-muted-foreground">
+             <Icon name="lucide:search-x" class="h-10 w-10 opacity-50" />
+          </div>
+          <h3 class="text-lg font-semibold text-[#1E1919] dark:text-foreground mb-2">No files found</h3>
+          <p class="text-muted-foreground text-sm max-w-xs">
+            {{ searchQuery || filterAccount ? 'No matches for your filters.' : 'Your storage is completely empty.' }}
+          </p>
+          <button 
+            v-if="searchQuery || filterAccount"
+            @click="searchQuery = ''; filterAccount = ''"
+            class="mt-4 text-[#0061FE] text-sm hover:underline"
           >
-            <td class="px-4 py-3">
-              <div class="flex items-center gap-3">
-                <div :class="['h-10 w-10 rounded-lg flex items-center justify-center shrink-0', getIconColor(file.extension)]">
-                  <Icon :name="getFileIcon(file.extension)" class="h-5 w-5" />
-                </div>
-                <div class="min-w-0">
-                  <p class="font-medium truncate max-w-xs" :title="file.name">{{ file.name }}</p>
-                  <p class="text-xs text-muted-foreground">{{ file.extension?.toUpperCase() || 'FILE' }}</p>
-                </div>
-              </div>
-            </td>
-            <td class="px-4 py-3">
-              <span 
-                class="inline-flex items-center gap-1.5 px-2 py-1 rounded-full text-xs font-medium"
-                :style="{ 
-                  backgroundColor: getAccountColor(file.accountId) + '20', 
-                  color: getAccountColor(file.accountId) 
-                }"
+            Clear all filters
+          </button>
+        </div>
+
+        <!-- Files Table -->
+        <div v-else class="w-full pb-8">
+           <table class="w-full text-left border-collapse">
+              <thead class="sticky top-0 bg-background/95 backdrop-blur z-10">
+                 <tr>
+                    <th class="py-3 px-4 text-xs font-semibold text-muted-foreground uppercase tracking-wider border-b w-[40%]">File Name</th>
+                    <th class="py-3 px-4 text-xs font-semibold text-muted-foreground uppercase tracking-wider border-b w-32 hidden sm:table-cell">Account</th>
+                    <th class="py-3 px-4 text-xs font-semibold text-muted-foreground uppercase tracking-wider border-b hidden md:table-cell">Location</th>
+                    <th class="py-3 px-4 text-xs font-semibold text-muted-foreground uppercase tracking-wider border-b w-24 hidden lg:table-cell">Size</th>
+                    <th class="py-3 px-4 text-xs font-semibold text-muted-foreground uppercase tracking-wider border-b w-32 hidden xl:table-cell">Modified</th>
+                    <th class="py-3 px-4 text-right text-xs font-semibold text-muted-foreground uppercase tracking-wider border-b w-24">Actions</th>
+                 </tr>
+              </thead>
+              <tbody class="divide-y divide-border/40">
+                 <tr 
+                    v-for="file in paginatedFiles" 
+                    :key="file.id" 
+                    class="group hover:bg-[#F7F9FA] dark:hover:bg-muted/20 transition-colors"
+                 >
+                    <td class="py-3 px-4">
+                       <div class="flex items-center gap-4">
+                          <!-- Minimalist Icon -->
+                          <div class="relative shrink-0">
+                             <Icon :name="getFileIcon(file.extension)" :class="['h-8 w-8', getIconColor(file.extension)]" />
+                          </div>
+                          <div class="min-w-0">
+                             <p class="font-medium text-sm text-[#1E1919] dark:text-foreground truncate" :title="file.name">
+                                {{ file.name }}
+                             </p>
+                             <div class="flex items-center gap-2 mt-0.5 lg:hidden">
+                                <span class="text-xs text-muted-foreground">{{ formatBytes(file.size) }}</span>
+                             </div>
+                          </div>
+                       </div>
+                    </td>
+                     <td class="py-3 px-4 hidden sm:table-cell">
+                         <span 
+                            class="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-medium whitespace-nowrap"
+                            :style="{ 
+                               backgroundColor: getAccountColor(file.accountId) + '15', 
+                               color: getAccountColor(file.accountId)
+                            }"
+                         >
+                            <span class="w-1.5 h-1.5 rounded-full shrink-0" :style="{ backgroundColor: getAccountColor(file.accountId) }"></span>
+                            <span class="truncate max-w-[120px]">{{ file.accountName }}</span>
+                         </span>
+                     </td>
+                    <td class="py-3 px-4 text-sm text-muted-foreground hidden md:table-cell">
+                       <div class="flex items-center gap-1.5 max-w-[200px]">
+                          <Icon name="lucide:folder" class="h-3 w-3 opacity-50 shrink-0" />
+                          <span class="truncate" :title="file.path">{{ getFolder(file.path) }}</span>
+                       </div>
+                    </td>
+                    <td class="py-3 px-4 text-xs font-mono text-muted-foreground hidden lg:table-cell">
+                       {{ formatBytes(file.size) }}
+                    </td>
+                    <td class="py-3 px-4 text-xs text-muted-foreground hidden xl:table-cell">
+                       {{ formatDate(file.modified) }}
+                    </td>
+                    <td class="py-3 px-4 text-right">
+                       <div class="flex items-center justify-end gap-1 opacity-100 sm:opacity-0 group-hover:opacity-100 transition-opacity">
+                          <button 
+                             @click="handleDownload(file)"
+                             title="Download"
+                             class="h-8 w-8 flex items-center justify-center rounded hover:bg-white hover:text-[#0061FE] hover:shadow-sm transition-all text-muted-foreground"
+                          >
+                             <Icon name="lucide:download" class="h-4 w-4" />
+                          </button>
+                          <button 
+                             @click="openShareModal(file)"
+                             title="Share"
+                             class="h-8 w-8 flex items-center justify-center rounded hover:bg-[#0061FE] hover:text-white hover:shadow-sm transition-all text-muted-foreground"
+                          >
+                             <Icon name="lucide:share-2" class="h-4 w-4" />
+                          </button>
+                       </div>
+                    </td>
+                 </tr>
+              </tbody>
+           </table>
+        </div>
+
+        <!-- Pagination -->
+        <div v-if="totalPages > 1" class="flex justify-center mt-4 pb-8">
+           <div class="flex items-center gap-1 bg-muted/30 p-1 rounded-full">
+              <button 
+                 @click="currentPage--"
+                 :disabled="currentPage === 1"
+                 class="h-8 w-8 flex items-center justify-center rounded-full hover:bg-background disabled:opacity-50 transition-all text-muted-foreground"
               >
-                <span class="w-2 h-2 rounded-full" :style="{ backgroundColor: getAccountColor(file.accountId) }"></span>
-                {{ file.accountName }}
-              </span>
-            </td>
-            <td class="px-4 py-3 text-sm text-muted-foreground hidden sm:table-cell">
-              <span class="truncate block max-w-[150px]" :title="file.path">
-                {{ getFolder(file.path) }}
-              </span>
-            </td>
-            <td class="px-4 py-3 text-sm text-muted-foreground hidden md:table-cell">
-              {{ formatBytes(file.size) }}
-            </td>
-            <td class="px-4 py-3 text-sm text-muted-foreground hidden lg:table-cell">
-              {{ formatDate(file.modified) }}
-            </td>
-            <td class="px-4 py-3 text-right">
-              <div class="flex items-center justify-end gap-1">
-                <UiButton 
-                  variant="ghost" 
-                  size="icon" 
-                  class="h-8 w-8"
-                  title="Download"
-                  @click="handleDownload(file)"
-                >
-                  <Icon name="lucide:download" class="h-4 w-4" />
-                </UiButton>
-                <UiButton 
-                  variant="ghost" 
-                  size="icon" 
-                  class="h-8 w-8"
-                  title="Share"
-                  @click="openShareModal(file)"
-                >
-                  <Icon name="lucide:share-2" class="h-4 w-4" />
-                </UiButton>
+                 <Icon name="lucide:chevron-left" class="h-4 w-4" />
+              </button>
+              <div class="px-4 text-xs font-medium text-muted-foreground">
+                 Page {{ currentPage }} of {{ totalPages }}
               </div>
-            </td>
-          </tr>
-        </tbody>
-      </table>
+              <button 
+                 @click="currentPage++"
+                 :disabled="currentPage === totalPages"
+                 class="h-8 w-8 flex items-center justify-center rounded-full hover:bg-background disabled:opacity-50 transition-all text-muted-foreground"
+              >
+                 <Icon name="lucide:chevron-right" class="h-4 w-4" />
+              </button>
+           </div>
+        </div>
+
+       </div>
     </div>
 
-    <!-- Pagination -->
-    <div v-if="totalPages > 1" class="flex items-center justify-between">
-      <p class="text-sm text-muted-foreground">
-        Showing {{ (currentPage - 1) * pageSize + 1 }} - {{ Math.min(currentPage * pageSize, sortedFiles.length) }} of {{ sortedFiles.length }}
-      </p>
-      <div class="flex items-center gap-2">
-        <UiButton 
-          variant="outline" 
-          size="sm" 
-          :disabled="currentPage === 1"
-          @click="currentPage--"
-        >
-          <Icon name="lucide:chevron-left" class="h-4 w-4" />
-        </UiButton>
-        <span class="text-sm">Page {{ currentPage }} of {{ totalPages }}</span>
-        <UiButton 
-          variant="outline" 
-          size="sm" 
-          :disabled="currentPage === totalPages"
-          @click="currentPage++"
-        >
-          <Icon name="lucide:chevron-right" class="h-4 w-4" />
-        </UiButton>
-      </div>
-    </div>
-
-    <!-- Share Modal -->
+    <!-- Share Modal (Clean) -->
     <Teleport to="body">
       <div 
         v-if="shareTarget" 
-        class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm"
+        class="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-[#1E1919]/60 backdrop-blur-[2px]"
         @click.self="closeShareModal"
       >
-        <div class="bg-card w-full max-w-md rounded-lg shadow-lg border p-6">
-          <div class="flex items-center gap-3 mb-4">
-            <div class="p-2 rounded-full bg-primary/10">
-              <Icon name="lucide:share-2" class="h-5 w-5 text-primary" />
-            </div>
-            <h3 class="font-semibold text-lg">Share File</h3>
+        <div class="bg-card w-full max-w-[480px] rounded-xl shadow-2xl border-0 overflow-hidden animate-in fade-in zoom-in-95 duration-200">
+          <div class="px-6 py-5 border-b bg-background flex items-center justify-between">
+             <h3 class="font-semibold text-lg text-[#1E1919] dark:text-foreground">Share File</h3>
+             <button @click="closeShareModal" class="p-1 rounded-full hover:bg-muted text-muted-foreground transition-colors">
+                <Icon name="lucide:x" class="h-5 w-5" />
+             </button>
           </div>
           
-          <!-- File Info -->
-          <div class="flex items-center gap-3 p-3 bg-muted/50 rounded-lg mb-4">
-            <Icon :name="getFileIcon(shareTarget.extension)" class="h-8 w-8 text-muted-foreground" />
-            <div class="flex-1 min-w-0">
-              <p class="font-medium truncate">{{ shareTarget.name }}</p>
-              <p class="text-xs text-muted-foreground">{{ formatBytes(shareTarget.size) }} • {{ shareTarget.accountName }}</p>
+          <div class="p-6">
+            <!-- File Info -->
+            <div class="flex items-center gap-4 mb-6">
+               <div class="h-10 w-10 flex items-center justify-center">
+                  <Icon :name="getFileIcon(shareTarget.extension)" class="h-10 w-10" :class="getIconColor(shareTarget.extension)" />
+               </div>
+               <div class="min-w-0">
+                  <h4 class="font-medium text-sm truncate">{{ shareTarget.name }}</h4>
+                  <div class="flex text-xs text-muted-foreground gap-2">
+                     <span>{{ formatBytes(shareTarget.size) }}</span>
+                     <span>•</span>
+                     <span class="text-[#0061FE]">{{ shareTarget.accountName }}</span>
+                  </div>
+               </div>
             </div>
-          </div>
 
-          <!-- Share Link Generated -->
-          <div v-if="shareResult" class="space-y-4">
-            <div class="flex items-center gap-2 p-3 bg-green-50 dark:bg-green-900/20 rounded-lg border border-green-200 dark:border-green-800">
-              <Icon name="lucide:check-circle" class="h-5 w-5 text-green-600" />
-              <span class="text-sm text-green-700 dark:text-green-400">Share link created!</span>
+            <!-- Share Result -->
+            <div v-if="shareResult" class="space-y-5">
+               <div class="p-4 bg-green-50 dark:bg-green-900/10 rounded-lg flex gap-3 border border-green-100 dark:border-green-800/30">
+                  <div class="mt-0.5">
+                     <Icon name="lucide:check-circle-2" class="h-5 w-5 text-green-600" />
+                  </div>
+                  <div>
+                     <p class="text-sm font-medium text-green-800 dark:text-green-300">Link created</p>
+                     <p class="text-xs text-green-600 dark:text-green-400 mt-0.5">Expires: {{ formatExpiry(shareResult.expiresAt) }}</p>
+                  </div>
+               </div>
+               
+               <div class="space-y-2">
+                  <label class="text-xs font-bold uppercase text-muted-foreground tracking-wider">Public Link</label>
+                  <div class="flex gap-2">
+                     <div class="flex-1 relative">
+                        <input 
+                           type="text" 
+                           :value="shareResult.url" 
+                           readonly
+                           class="w-full h-11 pl-3 pr-10 bg-muted/30 border rounded-md text-sm font-mono text-foreground focus:ring-2 focus:ring-blue-500/20 outline-none transition-all" 
+                        />
+                     </div>
+                     <button 
+                        @click="copyShareLink"
+                        class="h-11 px-6 rounded-md bg-[#0061FE] hover:bg-[#0057E5] text-white font-medium text-sm transition-colors flex items-center gap-2"
+                     >
+                        <Icon v-if="copied" name="lucide:check" class="h-4 w-4" />
+                        <Icon v-else name="lucide:copy" class="h-4 w-4" />
+                        {{ copied ? 'Copied' : 'Copy' }}
+                     </button>
+                  </div>
+               </div>
             </div>
-            
-            <div class="space-y-2">
-              <label class="text-xs font-medium text-muted-foreground uppercase">Share Link</label>
-              <div class="flex gap-2">
-                <input 
-                  type="text" 
-                  :value="shareResult.url" 
-                  readonly
-                  class="flex-1 h-10 px-3 rounded-md border bg-muted/50 text-sm font-mono"
-                />
-                <UiButton @click="copyShareLink" :variant="copied ? 'default' : 'outline'">
-                  <Icon :name="copied ? 'lucide:check' : 'lucide:copy'" class="h-4 w-4" />
-                </UiButton>
+
+            <!-- Create Share Form -->
+            <div v-else class="space-y-6">
+              <div>
+                 <label class="text-sm font-medium text-foreground mb-3 block">Link settings</label>
+                 <div class="grid grid-cols-2 gap-2">
+                    <button
+                      v-for="option in expirationOptions"
+                      :key="option.label"
+                      @click="selectedExpiration = option.days; selectedExpirationUnit = option.unit"
+                      :class="[
+                        'px-3 py-2.5 rounded-lg text-sm font-medium transition-all border text-left flex items-center justify-between',
+                        (selectedExpiration === option.days)
+                          ? 'bg-blue-50 border-blue-200 text-blue-700' 
+                          : 'bg-card hover:bg-muted border-input text-muted-foreground'
+                      ]"
+                    >
+                      {{ option.label }}
+                      <Icon v-if="selectedExpiration === option.days" name="lucide:check" class="h-4 w-4" />
+                    </button>
+                 </div>
               </div>
-            </div>
 
-            <p class="text-xs text-muted-foreground">
-              Expires: {{ formatExpiry(shareResult.expiresAt) }}
-            </p>
-
-            <div class="flex gap-2 pt-2">
-              <UiButton variant="outline" class="flex-1" @click="closeShareModal">
-                Close
-              </UiButton>
-            </div>
-          </div>
-
-          <!-- Expiration Selection -->
-          <div v-else class="space-y-4">
-            <div>
-              <label class="text-sm font-medium mb-2 block">Link Expires In</label>
-              <div class="grid grid-cols-3 gap-2">
-                <button
-                  v-for="option in expirationOptions"
-                  :key="option.label"
-                  @click="selectedExpiration = option.days; selectedExpirationUnit = option.unit"
-                  :class="[
-                    'px-3 py-2 rounded-md text-sm font-medium transition-colors border',
-                    (selectedExpiration === option.days && selectedExpirationUnit === option.unit)
-                      ? 'bg-primary text-primary-foreground border-primary' 
-                      : 'bg-card hover:bg-muted border-input'
-                  ]"
-                >
-                  {{ option.label }}
-                </button>
-              </div>
-            </div>
-
-            <div class="flex gap-2 pt-2">
-              <UiButton variant="outline" class="flex-1" @click="closeShareModal">
-                Cancel
-              </UiButton>
-              <UiButton 
-                class="flex-1"
-                :disabled="isSharing"
-                @click="handleShare"
-              >
-                <Icon v-if="isSharing" name="lucide:loader-2" class="h-4 w-4 mr-2 animate-spin" />
-                <Icon v-else name="lucide:link" class="h-4 w-4 mr-2" />
-                Create Link
-              </UiButton>
+               <button 
+                  @click="handleShare"
+                  :disabled="isSharing"
+                  class="w-full h-12 rounded-lg bg-[#0061FE] hover:bg-[#0057E5] text-white font-semibold text-base shadow-sm transition-all flex items-center justify-center gap-2 disabled:opacity-70 disabled:cursor-not-allowed mt-2"
+               >
+                  <Icon v-if="isSharing" name="lucide:loader-2" class="h-5 w-5 animate-spin" />
+                  <span v-else>Generate Link</span>
+               </button>
             </div>
           </div>
         </div>
@@ -498,31 +531,31 @@ const getFileIcon = (ext: string | null): string => {
 
 const getIconColor = (ext: string | null): string => {
   const colorMap: Record<string, string> = {
-    pdf: 'text-red-600 bg-red-50 dark:bg-red-900/30',
-    doc: 'text-blue-600 bg-blue-50 dark:bg-blue-900/30',
-    docx: 'text-blue-600 bg-blue-50 dark:bg-blue-900/30',
-    xls: 'text-green-600 bg-green-50 dark:bg-green-900/30',
-    xlsx: 'text-green-600 bg-green-50 dark:bg-green-900/30',
-    jpg: 'text-purple-600 bg-purple-50 dark:bg-purple-900/30',
-    jpeg: 'text-purple-600 bg-purple-50 dark:bg-purple-900/30',
-    png: 'text-purple-600 bg-purple-50 dark:bg-purple-900/30',
-    gif: 'text-purple-600 bg-purple-50 dark:bg-purple-900/30',
-    webp: 'text-purple-600 bg-purple-50 dark:bg-purple-900/30',
-    mp4: 'text-pink-600 bg-pink-50 dark:bg-pink-900/30',
-    mkv: 'text-pink-600 bg-pink-50 dark:bg-pink-900/30',
-    avi: 'text-pink-600 bg-pink-50 dark:bg-pink-900/30',
-    mov: 'text-pink-600 bg-pink-50 dark:bg-pink-900/30',
-    mp3: 'text-indigo-600 bg-indigo-50 dark:bg-indigo-900/30',
-    wav: 'text-indigo-600 bg-indigo-50 dark:bg-indigo-900/30',
-    flac: 'text-indigo-600 bg-indigo-50 dark:bg-indigo-900/30',
-    zip: 'text-amber-600 bg-amber-50 dark:bg-amber-900/30',
-    rar: 'text-amber-600 bg-amber-50 dark:bg-amber-900/30',
-    '7z': 'text-amber-600 bg-amber-50 dark:bg-amber-900/30',
+    pdf: 'text-red-600',
+    doc: 'text-blue-600',
+    docx: 'text-blue-600',
+    xls: 'text-green-600',
+    xlsx: 'text-green-600',
+    jpg: 'text-purple-600',
+    jpeg: 'text-purple-600',
+    png: 'text-purple-600',
+    gif: 'text-purple-600',
+    webp: 'text-purple-600',
+    mp4: 'text-pink-600',
+    mkv: 'text-pink-600',
+    avi: 'text-pink-600',
+    mov: 'text-pink-600',
+    mp3: 'text-indigo-600',
+    wav: 'text-indigo-600',
+    flac: 'text-indigo-600',
+    zip: 'text-amber-600',
+    rar: 'text-amber-600',
+    '7z': 'text-amber-600',
   }
-  return colorMap[ext || ''] || 'text-gray-600 bg-gray-50 dark:bg-gray-900/30'
+  return colorMap[ext || ''] || 'text-gray-600'
 }
 
-const accountColors = ['#3B82F6', '#10B981', '#F59E0B', '#EF4444', '#8B5CF6', '#EC4899']
+const accountColors = ['#0061FE', '#0070E0', '#007EE5', '#248CF2', '#4D9BF7', '#76ABFC']
 const getAccountColor = (accountId: string): string => {
   const index = accounts.value.findIndex(a => a.id === accountId)
   return accountColors[index % accountColors.length]

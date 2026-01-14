@@ -21,51 +21,24 @@
         </a>
       </div>
       
-      <!-- Account Selector (Admin only) -->
-      <div v-if="isAdmin" class="p-3 border-b">
-        <div class="text-xs font-semibold text-muted-foreground tracking-wider uppercase mb-2 px-1">
-          Accounts
-        </div>
-        <div class="space-y-1 max-h-32 overflow-auto">
-          <button
-            v-for="account in accounts"
-            :key="account.id"
-            @click="handleSwitchAccount(account.id)"
-            :class="[
-              'w-full flex items-center gap-2 px-2 py-1.5 rounded-md text-sm transition-colors text-left',
-              account.id === activeAccountId 
-                ? 'bg-primary text-primary-foreground' 
-                : 'hover:bg-muted text-foreground'
-            ]"
-          >
-            <div :class="[
-              'h-6 w-6 rounded-full flex items-center justify-center text-xs font-bold shrink-0',
-              account.id === activeAccountId ? 'bg-primary-foreground/20 text-primary-foreground' : 'bg-muted text-muted-foreground'
-            ]">
-              {{ account.name.charAt(0).toUpperCase() }}
-            </div>
-            <span class="truncate flex-1">{{ account.name }}</span>
-            <Icon v-if="account.id === activeAccountId" name="lucide:check" class="h-4 w-4 shrink-0" />
-          </button>
-        </div>
-        
-        <!-- Add Account Button (outside scrollable area) -->
-        <button
-          @click="openAddAccountModal"
-          class="w-full flex items-center gap-2 px-2 py-1.5 mt-1 rounded-md text-sm text-muted-foreground hover:bg-muted hover:text-foreground transition-colors"
-        >
-          <div class="h-6 w-6 rounded-full flex items-center justify-center border-2 border-dashed border-muted-foreground/50">
-            <Icon name="lucide:plus" class="h-3 w-3" />
-          </div>
-          <span>Add Account</span>
-        </button>
-      </div>
-      
       <!-- Navigation (scrollable) -->
       <div class="flex-1 py-4 px-3 space-y-1 overflow-auto min-h-0">
-         <div class="px-2 mb-2 text-xs font-semibold text-muted-foreground tracking-wider uppercase">Storage</div>
+         <div class="px-2 mb-2 text-xs font-semibold text-muted-foreground tracking-wider uppercase">Menu</div>
          <nav class="space-y-1">
-            <!-- My Files - For regular users only (their uploaded files) -->
+            <!-- Admin Dashboard Link -->
+            <NuxtLink 
+              v-if="isAdmin"
+              to="/drive" 
+              :class="[
+                'flex items-center gap-3 px-3 py-2 text-sm font-medium rounded-md transition-colors',
+                route.path === '/drive' ? 'bg-accent text-accent-foreground' : 'text-muted-foreground hover:bg-muted hover:text-foreground'
+              ]"
+            >
+               <Icon name="lucide:layout-dashboard" class="h-4 w-4" />
+               Dashboard
+            </NuxtLink>
+
+            <!-- My Files - For regular users only -->
             <NuxtLink 
               v-if="!isAdmin"
               to="/drive" 
@@ -80,6 +53,7 @@
             
             <!-- Admin Storage Section -->
             <template v-if="isAdmin">
+            <div class="px-2 mt-4 mb-2 text-xs font-semibold text-muted-foreground tracking-wider uppercase">Storage</div>
             <NuxtLink 
               to="/admin/files" 
               :class="[
@@ -187,7 +161,7 @@
         </div>
         <div class="w-full bg-muted rounded-full h-1.5 overflow-hidden">
           <div 
-            class="h-full rounded-full bg-gradient-to-r from-blue-500 to-purple-500"
+            class="h-full rounded-full bg-[#0061FE]"
             :style="{ width: combinedStoragePercentage + '%' }"
           ></div>
         </div>

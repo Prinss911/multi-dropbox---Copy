@@ -26,13 +26,40 @@ export const useAdminSupabase = () => {
 // Deprecated alias for backward compatibility
 export const useSupabase = useAdminSupabase
 
-// Helper to get token from header
+// Helper to get token from header or cookies
 const getAuthToken = (event: H3Event) => {
+    // First try Authorization header
     const authHeader = getHeader(event, 'Authorization')
     if (authHeader?.startsWith('Bearer ')) {
         return authHeader.substring(7)
     }
-    return null
+
+    // Fallback to cookies
+    const cookies = parseCookies(event)
+
+    // Try various cookie names Supabase might use
+    let accessToken = cookies['sb-access-token']
+        || cookies['sb-token']
+        || cookies['supabase-auth-token']
+
+    // Also check for cookies with project reference pattern
+    // e.g., sb-<project-ref>-auth-token
+    if (!accessToken) {
+        const authCookie = Object.entries(cookies).find(([key]) =>
+            key.includes('-auth-token') || key.includes('access-token')
+        )
+        if (authCookie) {
+            // Parse JSON if it's the auth-token format [access, refresh]
+            try {
+                const parsed = JSON.parse(authCookie[1])
+                accessToken = Array.isArray(parsed) ? parsed[0] : parsed.access_token || parsed
+            } catch {
+                accessToken = authCookie[1]
+            }
+        }
+    }
+
+    return accessToken || null
 }
 
 export const serverSupabaseClient = async <T = any>(event: H3Event) => {

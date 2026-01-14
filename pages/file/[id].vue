@@ -1,65 +1,104 @@
 <template>
-  <div class="min-h-screen bg-background flex flex-col items-center justify-center p-4">
-    <div class="w-full max-w-4xl">
+  <div class="min-h-screen bg-background font-sans text-foreground flex flex-col">
+    <!-- Navbar -->
+    <header class="sticky top-0 z-50 w-full border-b bg-background/80 backdrop-blur supports-[backdrop-filter]:bg-background/60">
+      <div class="max-w-7xl mx-auto px-4 sm:px-6 h-16 flex items-center justify-between">
+        <a href="/" class="flex items-center gap-2 font-bold text-xl hover:opacity-80 transition-opacity">
+          <div class="bg-[#0061FE] text-white p-1.5 rounded-lg">
+             <Icon name="lucide:hard-drive" class="h-5 w-5" />
+          </div>
+          <span>MultiBox</span>
+        </a>
+      </div>
+    </header>
+
+    <!-- Main Content -->
+    <main class="flex-1 w-full max-w-6xl mx-auto p-4 md:p-8 md:py-12">
+      
       <!-- Loading -->
-      <div v-if="isLoading" class="bg-card border rounded-xl p-8 text-center shadow-sm">
-        <div class="relative w-12 h-12 mx-auto mb-4">
-           <Icon name="lucide:loader-2" class="w-12 h-12 text-primary animate-spin" />
-        </div>
-        <p class="text-muted-foreground">Loading file info...</p>
+      <div v-if="isLoading" class="flex flex-col items-center justify-center min-h-[50vh]">
+        <Icon name="lucide:loader-2" class="w-10 h-10 text-[#0061FE] animate-spin mb-4" />
+        <p class="text-muted-foreground font-medium">Loading file...</p>
       </div>
 
       <!-- Error -->
-      <div v-else-if="error" class="bg-card border rounded-xl p-8 text-center shadow-sm">
-        <div class="w-16 h-16 bg-destructive/10 rounded-full flex items-center justify-center mx-auto mb-4">
-          <Icon name="lucide:x-circle" class="h-8 w-8 text-destructive" />
+      <div v-else-if="error" class="flex flex-col items-center justify-center min-h-[50vh] text-center max-w-md mx-auto">
+        <div class="w-20 h-20 bg-red-50 dark:bg-red-900/20 rounded-full flex items-center justify-center mb-6">
+          <Icon name="lucide:file-warning" class="h-10 w-10 text-red-500" />
         </div>
-        <h1 class="text-xl font-bold text-foreground mb-2">Link Not Available</h1>
-        <p class="text-muted-foreground mb-6">{{ error }}</p>
-        <NuxtLink to="/" class="inline-flex h-10 items-center justify-center rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground shadow transition-colors hover:bg-primary/90">
-          <Icon name="lucide:home" class="h-4 w-4 mr-2" />
-          Go to Home
+        <h1 class="text-2xl font-bold mb-3">Link Unavailable</h1>
+        <p class="text-muted-foreground mb-8">{{ error }}</p>
+        <NuxtLink to="/" class="inline-flex items-center justify-center h-11 px-8 rounded-full bg-[#0061FE] text-white font-medium hover:bg-[#0057E5] transition-colors shadow-lg hover:shadow-xl hover:-translate-y-0.5 transform duration-200">
+          <Icon name="lucide:arrow-left" class="h-4 w-4 mr-2" />
+          Back to Home
         </NuxtLink>
       </div>
 
-      <!-- File Info -->
-      <div v-else-if="fileInfo" class="bg-card border rounded-xl shadow-sm overflow-hidden">
-        <!-- Header -->
-        <div class="bg-primary/5 border-b p-6 text-center">
-          <div class="w-16 h-16 bg-background border rounded-2xl flex items-center justify-center mx-auto mb-3 shadow-sm">
-            <Icon :name="isBatch ? 'lucide:folder' : 'lucide:file-text'" class="h-8 w-8 text-primary" />
-          </div>
-          <h1 class="text-lg font-bold text-foreground">{{ fileInfo.fileName }}</h1>
-          <p class="text-xs text-muted-foreground mt-1 uppercase tracking-wider">
-            {{ isBatch ? `${files.length} Files` : 'Shared File' }}
-          </p>
+      <!-- Content -->
+      <div v-else-if="fileInfo" class="space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-500">
+        
+        <!-- Header Section -->
+        <div class="flex flex-col md:flex-row md:items-start justify-between gap-6">
+           <div class="flex-1 min-w-0">
+             <div class="flex items-center gap-3 mb-2">
+                <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-50 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300">
+                   {{ isBatch ? 'Folder Share' : 'Shared File' }}
+                </span>
+                <span v-if="isExpiringSoon" class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-amber-50 text-amber-700 dark:bg-amber-900/30 dark:text-amber-300">
+                   Expires {{ timeRemaining }}
+                </span>
+             </div>
+             <h1 class="text-3xl md:text-4xl font-bold tracking-tight text-foreground break-words leading-tight">{{ fileInfo.fileName }}</h1>
+             <div class="flex flex-wrap items-center gap-x-4 gap-y-2 mt-4 text-sm text-muted-foreground">
+                <div class="flex items-center gap-1.5">
+                   <Icon name="lucide:hard-drive" class="h-4 w-4" />
+                   {{ isBatch ? `${files.length} items` : formatBytes(files[0]?.size) }}
+                </div>
+                <div class="h-1 w-1 rounded-full bg-border"></div>
+                <div class="flex items-center gap-1.5">
+                   <Icon name="lucide:download-cloud" class="h-4 w-4" />
+                   {{ fileInfo.downloadCount }} downloads
+                </div>
+                <div class="h-1 w-1 rounded-full bg-border"></div>
+                <div class="flex items-center gap-1.5">
+                   <Icon name="lucide:clock" class="h-4 w-4" />
+                   {{ !fileInfo.expiresAt ? 'Never expires' : timeRemaining }}
+                </div>
+             </div>
+           </div>
+
+           <!-- Desktop Download Action -->
+           <div class="hidden md:block shrink-0">
+              <UiButton 
+                @click="isBatch ? downloadAll() : downloadSingleFile(0)" 
+                :disabled="isDownloading"
+                size="lg" 
+                class="h-12 px-8 text-base bg-[#0061FE] hover:bg-[#0057E5] text-white shadow-lg shadow-blue-500/20 rounded-full"
+              >
+                 <Icon :name="isDownloading ? 'lucide:loader-2' : 'lucide:download'" :class="isDownloading ? 'animate-spin' : ''" class="mr-2 h-5 w-5" />
+                 {{ isDownloading ? 'Downloading...' : 'Download Now' }}
+              </UiButton>
+           </div>
         </div>
 
-        <!-- Content -->
-        <div class="p-4 space-y-4">
-          <!-- Expiry & Download Count -->
-          <div class="flex justify-between text-sm">
-            <div class="flex items-center gap-2">
-              <Icon name="lucide:clock" class="h-4 w-4 text-muted-foreground" />
-              <span :class="isExpiringSoon ? 'text-destructive font-medium' : 'text-muted-foreground'">{{ timeRemaining }}</span>
-            </div>
-            <div class="flex items-center gap-2">
-              <Icon name="lucide:download" class="h-4 w-4 text-muted-foreground" />
-              <span class="text-muted-foreground">{{ fileInfo.downloadCount }} downloads</span>
-            </div>
-          </div>
+        <!-- Warning Banner -->
+        <div v-if="missingCount > 0" class="rounded-lg border-l-4 border-yellow-500 bg-yellow-50 dark:bg-yellow-900/20 p-4">
+           <div class="flex">
+              <div class="flex-shrink-0">
+                 <Icon name="lucide:alert-triangle" class="h-5 w-5 text-yellow-500" />
+              </div>
+              <div class="ml-3">
+                 <p class="text-sm text-yellow-700 dark:text-yellow-200">
+                    {{ missingCount }} file(s) in this share are no longer available.
+                 </p>
+              </div>
+           </div>
+        </div>
 
-          <!-- Missing Files Warning -->
-          <div 
-            v-if="missingCount > 0" 
-            class="flex items-center gap-2 p-3 bg-yellow-100 dark:bg-yellow-900/30 text-yellow-800 dark:text-yellow-200 rounded-md text-sm"
-          >
-            <Icon name="lucide:alert-triangle" class="h-4 w-4 flex-shrink-0" />
-            <span>{{ missingCount }} file(s) unavailable - may have been deleted</span>
-          </div>
-
-          <!-- Video Player (for single video file) -->
-          <div v-if="isVideo && !isBatch" class="rounded-lg overflow-hidden relative">
+        <!-- Main Preview Area -->
+        <div class="w-full">
+           <!-- Video Player (UNTOUCHED LOGIC) -->
+           <div v-if="isVideo && !isBatch" class="rounded-2xl overflow-hidden relative shadow-2xl bg-black ring-1 ring-white/10">
             <div v-if="isLoadingStream" class="flex items-center justify-center h-64 bg-gray-900 text-white">
                 <Icon name="lucide:loader-2" class="w-8 h-8 animate-spin mr-2" />
                 <span>Preparing stream...</span>
@@ -74,103 +113,96 @@
                 :type="videoType"
                 :title="fileInfo.fileName"
             />
-          </div>
+           </div>
 
-          <!-- Audio Player (for single audio file) -->
-          <div v-else-if="isAudio && !isBatch" class="bg-muted/50 rounded-lg p-4">
-            <audio 
-              :src="streamUrl(0)"
-              controls
-              preload="metadata"
-              class="w-full"
-            >
-              Your browser does not support audio playback.
-            </audio>
-          </div>
-
-          <!-- Image Preview (for single image file) -->
-          <div v-else-if="isImage && !isBatch" class="rounded-lg overflow-hidden">
-            <img 
-              :src="streamUrl(0)"
-              :alt="fileInfo.fileName"
-              class="w-full max-h-64 object-contain bg-muted/50"
-            />
-          </div>
-
-          <!-- File List (Batch) -->
-          <div v-if="isBatch" class="space-y-2">
-            <p class="text-xs font-medium text-muted-foreground uppercase tracking-wider">Files</p>
-            <div class="space-y-1 max-h-48 overflow-auto">
-              <div 
-                v-for="(file, idx) in files" 
-                :key="idx"
-                :class="[
-                  'flex items-center gap-3 p-2 rounded-md transition-colors',
-                  file.available ? 'bg-muted/50 hover:bg-muted' : 'bg-destructive/10 opacity-60'
-                ]"
-              >
-                <Icon 
-                  :name="getFileIcon(file.name)" 
-                  :class="['h-4 w-4 flex-shrink-0', file.available ? 'text-muted-foreground' : 'text-destructive']" 
-                />
-                <span :class="['flex-1 text-sm truncate', !file.available && 'line-through']">{{ file.name }}</span>
-                <span v-if="file.available" class="text-xs text-muted-foreground">{{ formatBytes(file.size) }}</span>
-                <span v-else class="text-xs text-destructive">Deleted</span>
-                <!-- Preview button for video/audio -->
-                <button 
-                  v-if="file.available && isMediaFile(file.name)"
-                  @click="previewFile = idx"
-                  class="p-1 hover:bg-background rounded transition-colors"
-                  title="Preview"
-                >
-                  <Icon name="lucide:play-circle" class="h-4 w-4 text-primary" />
-                </button>
-                <button 
-                  v-if="file.available"
-                  @click="downloadSingleFile(idx)"
-                  class="p-1 hover:bg-background rounded transition-colors"
-                  title="Download"
-                >
-                  <Icon name="lucide:download" class="h-4 w-4 text-primary" />
-                </button>
+           <!-- Audio Player -->
+           <div v-else-if="isAudio && !isBatch" class="bg-card border rounded-2xl p-8 shadow-sm flex flex-col items-center">
+              <div class="w-24 h-24 bg-blue-50 dark:bg-blue-900/20 rounded-2xl flex items-center justify-center mb-6 text-[#0061FE]">
+                 <Icon name="lucide:music" class="h-10 w-10" />
               </div>
-            </div>
-          </div>
+              <h3 class="text-lg font-medium mb-6">{{ fileInfo.fileName }}</h3>
+              <audio 
+                :src="streamUrl(0)"
+                controls
+                preload="metadata"
+                class="w-full max-w-2xl"
+              >
+                Your browser does not support audio playback.
+              </audio>
+           </div>
 
-          <!-- Download Buttons -->
-          <div class="space-y-2 pt-2">
-            <!-- Download All (Batch) -->
-            <UiButton
-              v-if="isBatch"
-              @click="downloadAll"
-              :disabled="isDownloading"
-              class="w-full h-11"
-            >
-              <Icon :name="isDownloading ? 'lucide:loader-2' : 'lucide:archive'" :class="isDownloading && 'animate-spin'" class="h-5 w-5 mr-2" />
-              {{ isDownloading ? 'Preparing ZIP...' : 'Download All as ZIP' }}
-            </UiButton>
+           <!-- Image Preview -->
+           <div v-else-if="isImage && !isBatch" class="bg-muted/10 rounded-2xl overflow-hidden border shadow-sm flex justify-center">
+              <img 
+                :src="streamUrl(0)"
+                :alt="fileInfo.fileName"
+                class="max-w-full max-h-[80vh] object-contain shadow-md"
+              />
+           </div>
 
-            <!-- Single File Download -->
-            <UiButton
-              v-else
-              @click="downloadSingleFile(0)"
+           <!-- Batch File List -->
+           <div v-if="isBatch" class="bg-card border rounded-xl overflow-hidden shadow-sm">
+              <div class="px-6 py-4 border-b bg-muted/30 flex items-center justify-between">
+                 <h3 class="font-semibold">Contains {{ files.length }} Files</h3>
+              </div>
+              <div class="divide-y max-h-[500px] overflow-auto">
+                 <div 
+                   v-for="(file, idx) in files" 
+                   :key="idx"
+                   class="group flex items-center gap-4 px-6 py-4 hover:bg-muted/50 transition-colors"
+                 >
+                    <div class="h-10 w-10 rounded-lg bg-blue-50 dark:bg-blue-900/20 flex items-center justify-center text-[#0061FE] shrink-0">
+                       <Icon :name="getFileIcon(file.name)" class="h-5 w-5" />
+                    </div>
+                    
+                    <div class="flex-1 min-w-0">
+                       <h4 :class="['font-medium text-sm truncate', !file.available && 'text-muted-foreground line-through']">{{ file.name }}</h4>
+                       <p class="text-xs text-muted-foreground mt-0.5">{{ formatBytes(file.size) }}</p>
+                    </div>
+
+                    <div class="flex items-center gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                       <button 
+                          v-if="file.available && isMediaFile(file.name)"
+                          @click="previewFile = idx"
+                          class="p-2 rounded-full hover:bg-background text-[#0061FE] transition-colors"
+                          title="Preview"
+                       >
+                          <Icon name="lucide:play-circle" class="h-5 w-5" />
+                       </button>
+                       <button 
+                          v-if="file.available"
+                          @click="downloadSingleFile(idx)"
+                          class="p-2 rounded-full hover:bg-background text-muted-foreground hover:text-foreground transition-colors"
+                          title="Download"
+                       >
+                          <Icon name="lucide:download" class="h-5 w-5" />
+                       </button>
+                    </div>
+                 </div>
+              </div>
+           </div>
+        </div>
+        
+        <!-- Mobile Download Button -->
+        <div class="md:hidden pt-4">
+           <UiButton 
+              @click="isBatch ? downloadAll() : downloadSingleFile(0)" 
               :disabled="isDownloading"
-              class="w-full h-11"
-            >
-              <Icon :name="isDownloading ? 'lucide:loader-2' : 'lucide:download'" :class="isDownloading && 'animate-spin'" class="h-5 w-5 mr-2" />
-              {{ isDownloading ? 'Preparing...' : 'Download File' }}
-            </UiButton>
-          </div>
+              class="w-full h-12 text-base rounded-full bg-[#0061FE]"
+           >
+              {{ isDownloading ? 'Downloading...' : 'Download File' }}
+           </UiButton>
         </div>
 
-        <!-- Footer -->
-        <div class="bg-muted/30 px-4 py-3 text-center border-t">
-          <p class="text-xs text-muted-foreground">
-            Trusted file sharing via <span class="font-semibold text-foreground">MultiBox</span>
-          </p>
-        </div>
       </div>
-    </div>
+
+    </main>
+    
+    <!-- Footer -->
+    <footer class="py-8 text-center text-sm text-muted-foreground border-t mt-auto">
+       <p>© 2026 MultiBox. Secure file sharing.</p>
+    </footer>
+
   </div>
 </template>
 

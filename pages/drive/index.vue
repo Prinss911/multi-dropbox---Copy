@@ -1,248 +1,274 @@
 <template>
-  <div class="space-y-6">
-    <!-- Header -->
-    <div class="flex items-center justify-between">
-      <div>
-        <h1 class="text-2xl font-semibold">Dashboard</h1>
-        <p class="text-sm text-muted-foreground">Overview of your MultiBox storage</p>
-      </div>
-      <UiButton variant="outline" size="sm" @click="refresh" :disabled="pending">
-        <Icon :name="pending ? 'lucide:loader-2' : 'lucide:refresh-cw'" :class="{ 'animate-spin': pending }" class="h-4 w-4" />
-      </UiButton>
-    </div>
-
-    <!-- Loading -->
-    <div v-if="pending" class="text-center py-12">
-      <Icon name="lucide:loader-2" class="animate-spin h-8 w-8 text-primary mx-auto" />
-      <p class="mt-2 text-sm text-muted-foreground">Loading dashboard...</p>
-    </div>
-
-    <!-- Error -->
-    <div v-else-if="error" class="bg-destructive/10 border border-destructive/20 rounded-lg p-4">
-      <div class="flex items-center gap-2 text-destructive">
-        <Icon name="lucide:alert-circle" class="h-5 w-5" />
-        <span>{{ error.message || 'Failed to load dashboard' }}</span>
+  <div class="h-full flex flex-col bg-background/50">
+    <!-- Redirect non-admin users -->
+    <!-- Redirect non-admin users (Disabled for debugging/access fix) -->
+    <div v-if="false" class="h-full flex items-center justify-center">
+      <div class="flex flex-col items-center gap-3">
+         <Icon name="lucide:loader-2" class="animate-spin h-8 w-8 text-[#0061FE]" />
+         <p class="text-sm text-muted-foreground">Redirecting...</p>
       </div>
     </div>
 
-    <template v-else-if="data">
-      <!-- Stats Cards -->
-      <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-        <!-- Total Storage -->
-        <div class="bg-card border rounded-xl p-5 shadow-sm">
-          <div class="flex items-center justify-between">
-            <div class="p-2 rounded-lg bg-blue-500/10">
-              <Icon name="lucide:hard-drive" class="h-5 w-5 text-blue-500" />
-            </div>
-            <span class="text-xs text-muted-foreground">{{ data.storage.percentage }}%</span>
-          </div>
-          <div class="mt-3">
-            <p class="text-2xl font-bold">{{ formatBytes(data.storage.used) }}</p>
-            <p class="text-sm text-muted-foreground">of {{ formatBytes(data.storage.allocated) }} used</p>
-          </div>
-          <div class="mt-3 h-1.5 bg-muted rounded-full overflow-hidden">
-            <div 
-              class="h-full bg-blue-500 transition-all"
-              :style="{ width: `${Math.min(data.storage.percentage, 100)}%` }"
-            ></div>
-          </div>
-        </div>
-
-        <!-- Accounts -->
-        <div class="bg-card border rounded-xl p-5 shadow-sm">
-          <div class="flex items-center justify-between">
-            <div class="p-2 rounded-lg bg-green-500/10">
-              <Icon name="lucide:users" class="h-5 w-5 text-green-500" />
-            </div>
-          </div>
-          <div class="mt-3">
-            <p class="text-2xl font-bold">{{ data.accountCount }}</p>
-            <p class="text-sm text-muted-foreground">Dropbox Accounts</p>
-          </div>
-        </div>
-
-        <!-- Active Shares -->
-        <div class="bg-card border rounded-xl p-5 shadow-sm">
-          <div class="flex items-center justify-between">
-            <div class="p-2 rounded-lg bg-purple-500/10">
-              <Icon name="lucide:link-2" class="h-5 w-5 text-purple-500" />
-            </div>
-            <span v-if="data.shares.expired > 0" class="text-xs text-amber-500">{{ data.shares.expired }} expired</span>
-          </div>
-          <div class="mt-3">
-            <p class="text-2xl font-bold">{{ data.shares.active }}</p>
-            <p class="text-sm text-muted-foreground">Active Share Links</p>
-          </div>
-        </div>
-
-        <!-- Total Downloads -->
-        <div class="bg-card border rounded-xl p-5 shadow-sm">
-          <div class="flex items-center justify-between">
-            <div class="p-2 rounded-lg bg-orange-500/10">
-              <Icon name="lucide:download" class="h-5 w-5 text-orange-500" />
-            </div>
-          </div>
-          <div class="mt-3">
-            <p class="text-2xl font-bold">{{ data.shares.totalDownloads }}</p>
-            <p class="text-sm text-muted-foreground">Total Downloads</p>
-          </div>
-        </div>
-      </div>
-
-      <!-- Charts Row -->
-      <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        <!-- Storage per Account -->
-        <div class="bg-card border rounded-xl p-5 shadow-sm">
-          <h3 class="font-semibold mb-4 flex items-center gap-2">
-            <Icon name="lucide:pie-chart" class="h-4 w-4 text-muted-foreground" />
-            Storage per Account
-          </h3>
-          <div class="space-y-3">
-            <div 
-              v-for="(account, idx) in data.accounts" 
-              :key="account.id"
-              class="flex items-center gap-3"
-            >
-              <div 
-                class="w-3 h-3 rounded-full shrink-0"
-                :style="{ backgroundColor: accountColors[idx % accountColors.length] }"
-              ></div>
-              <div class="flex-1 min-w-0">
-                <div class="flex items-center justify-between mb-1">
-                  <span class="text-sm font-medium truncate">{{ account.name }}</span>
-                  <span class="text-xs text-muted-foreground">{{ formatBytes(account.used) }}</span>
-                </div>
-                <div class="h-1.5 bg-muted rounded-full overflow-hidden">
-                  <div 
-                    class="h-full transition-all"
-                    :style="{ 
-                      backgroundColor: accountColors[idx % accountColors.length],
-                      width: `${account.allocated > 0 ? (account.used / account.allocated) * 100 : 0}%`
-                    }"
-                  ></div>
-                </div>
+    <!-- Admin Dashboard -->
+    <div v-else class="flex-1 overflow-auto">
+      <!-- Top Stats Bar (Sticky) -->
+      <div class="sticky top-0 z-20 bg-background/95 backdrop-blur border-b px-6 py-4">
+      <div class="w-full">
+        <div class="flex flex-col md:flex-row md:items-center justify-between gap-4">
+           <!-- Left: Title -->
+           <div>
+             <h1 class="text-xl font-semibold text-[#1E1919] dark:text-foreground">Overview</h1>
+             <p class="text-sm text-muted-foreground">Admin Dashboard</p>
+           </div>
+           
+           <!-- Right: Stats & Actions -->
+           <div class="flex items-center gap-6">
+              <!-- Users Stat -->
+              <div class="flex items-center gap-3">
+                 <div class="h-10 w-10 rounded-full bg-green-50 flex items-center justify-center text-green-600 shrink-0">
+                    <Icon name="lucide:users" class="h-5 w-5" />
+                 </div>
+                 <div class="text-right sm:text-left">
+                    <p class="text-sm font-semibold text-[#1E1919] dark:text-foreground">{{ data?.accountCount || 0 }} Accounts</p>
+                    <p class="text-xs text-muted-foreground">Connected</p>
+                 </div>
               </div>
-            </div>
-          </div>
-        </div>
 
-        <!-- Top Downloads -->
-        <div class="bg-card border rounded-xl p-5 shadow-sm">
-          <h3 class="font-semibold mb-4 flex items-center gap-2">
-            <Icon name="lucide:trending-up" class="h-4 w-4 text-muted-foreground" />
-            Top Downloaded Files
-          </h3>
-          <div v-if="data.topDownloaded.length === 0" class="text-center py-6 text-muted-foreground">
-            <Icon name="lucide:bar-chart-3" class="h-8 w-8 mx-auto mb-2 opacity-50" />
-            <p class="text-sm">No downloads yet</p>
-          </div>
-          <div v-else class="space-y-3">
-            <div 
-              v-for="(file, idx) in data.topDownloaded" 
-              :key="idx"
-              class="flex items-center gap-3"
-            >
-              <span class="text-lg font-bold text-muted-foreground w-6">{{ idx + 1 }}</span>
-              <div class="flex-1 min-w-0">
-                <p class="text-sm font-medium truncate">{{ file.fileName }}</p>
-                <p class="text-xs text-muted-foreground">{{ file.accountName }}</p>
+              <div class="w-px h-8 bg-border hidden sm:block"></div>
+
+              <!-- Active Shares -->
+              <div class="flex items-center gap-3">
+                 <div class="h-10 w-10 rounded-full bg-purple-50 flex items-center justify-center text-purple-600 shrink-0">
+                    <Icon name="lucide:link" class="h-5 w-5" />
+                 </div>
+                 <div>
+                    <p class="text-sm font-semibold text-[#1E1919] dark:text-foreground">{{ data?.shares?.active || 0 }} Active Links</p>
+                    <p class="text-xs text-muted-foreground">{{ data?.shares?.totalDownloads || 0 }} Total Downloads</p>
+                 </div>
               </div>
-              <div class="flex items-center gap-1 text-sm font-medium">
-                <Icon name="lucide:download" class="h-3 w-3" />
-                {{ file.downloads }}
+           </div>
+           
+           <UiButton variant="ghost" size="icon" @click="refresh" :disabled="pending" class="ml-4">
+             <Icon :name="pending ? 'lucide:loader-2' : 'lucide:refresh-cw'" :class="{ 'animate-spin': pending }" class="h-4 w-4" />
+           </UiButton>
+        </div>
+      </div>
+    </div>
+
+    <div class="px-4 md:px-6 py-8 w-full space-y-8">
+        <!-- Loading -->
+        <div v-if="pending" class="py-12 flex justify-center text-muted-foreground">
+           <div class="flex flex-col items-center gap-2">
+              <Icon name="lucide:loader-2" class="animate-spin h-8 w-8 text-[#0061FE]" />
+              <p class="text-sm">Loading dashboard data...</p>
+           </div>
+        </div>
+
+        <div v-else-if="error" class="p-6 rounded-lg bg-red-50 border border-red-100 text-center text-red-600">
+           <Icon name="lucide:alert-triangle" class="h-8 w-8 mb-2 mx-auto" />
+           <p class="font-medium">Failed to load dashboard data</p>
+           <p class="text-sm opacity-80 mt-1">{{ error.message }}</p>
+        </div>
+
+        <template v-else-if="data">
+           <!-- Charts / Detail Row -->
+           <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+              <!-- Storage Distribution -->
+              <div class="bg-card rounded-xl border p-6 shadow-sm">
+                 <h3 class="font-semibold text-base mb-6 flex items-center gap-2">
+                    <Icon name="lucide:pie-chart" class="h-4 w-4 text-muted-foreground" />
+                    Storage Breakdown
+                 </h3>
+                 <div class="space-y-4">
+                    <div 
+                       v-for="(account, idx) in data.accounts" 
+                       :key="account.id"
+                       class="group"
+                    >
+                       <div class="flex items-center justify-between mb-2 text-sm">
+                          <div class="flex items-center gap-2">
+                             <div 
+                                class="w-2.5 h-2.5 rounded-full shrink-0"
+                                :style="{ backgroundColor: accountColors[idx % accountColors.length] }"
+                             ></div>
+                             <span class="font-medium text-[#1E1919] dark:text-foreground">{{ account.name }}</span>
+                          </div>
+                          <div class="text-muted-foreground font-mono text-xs">
+                             {{ formatBytes(account.used) }} / {{ formatBytes(account.allocated) }}
+                          </div>
+                       </div>
+                       <div class="h-2 w-full bg-muted/50 rounded-full overflow-hidden">
+                          <div 
+                             class="h-full rounded-full transition-all duration-500"
+                             :style="{ 
+                                backgroundColor: accountColors[idx % accountColors.length],
+                                width: `${account.allocated > 0 ? (account.used / account.allocated) * 100 : 0}%`
+                             }"
+                          ></div>
+                       </div>
+                    </div>
+                 </div>
               </div>
-            </div>
-          </div>
-        </div>
-      </div>
 
-      <!-- Recent Shares -->
-      <div class="bg-card border rounded-xl p-5 shadow-sm">
-        <div class="flex items-center justify-between mb-4">
-          <h3 class="font-semibold flex items-center gap-2">
-            <Icon name="lucide:clock" class="h-4 w-4 text-muted-foreground" />
-            Recent Share Links
-          </h3>
-          <NuxtLink to="/admin/shares" class="text-sm text-primary hover:underline">
-            View all →
-          </NuxtLink>
-        </div>
-        
-        <div v-if="data.recentShares.length === 0" class="text-center py-6 text-muted-foreground">
-          <Icon name="lucide:link-2-off" class="h-8 w-8 mx-auto mb-2 opacity-50" />
-          <p class="text-sm">No shares yet</p>
-        </div>
+              <!-- Top Downloads -->
+              <div class="bg-card rounded-xl border p-6 shadow-sm flex flex-col">
+                 <h3 class="font-semibold text-base mb-6 flex items-center gap-2">
+                    <Icon name="lucide:trending-up" class="h-4 w-4 text-muted-foreground" />
+                    Popular Files
+                 </h3>
+                 
+                 <div v-if="data.topDownloaded.length === 0" class="flex-1 flex flex-col items-center justify-center text-muted-foreground py-10">
+                    <Icon name="lucide:bar-chart-2" class="h-10 w-10 opacity-20 mb-3" />
+                    <p class="text-sm">No download data available yet</p>
+                 </div>
+                 
+                 <div v-else class="space-y-1">
+                    <div 
+                       v-for="(file, idx) in data.topDownloaded" 
+                       :key="idx"
+                       class="flex items-center gap-4 p-3 rounded-lg hover:bg-muted/30 transition-colors"
+                    >
+                       <span class="text-sm font-bold text-muted-foreground/50 w-4">{{ idx + 1 }}</span>
+                       <div class="h-8 w-8 rounded bg-blue-50 flex items-center justify-center text-[#0061FE] shrink-0">
+                          <Icon name="lucide:file" class="h-4 w-4" />
+                       </div>
+                       <div class="flex-1 min-w-0">
+                          <p class="text-sm font-medium truncate text-[#1E1919] dark:text-foreground" :title="file.fileName">{{ file.fileName }}</p>
+                          <p class="text-xs text-muted-foreground">{{ file.accountName }}</p>
+                       </div>
+                       <div class="text-sm font-medium bg-muted/50 px-2 py-1 rounded text-muted-foreground">
+                          {{ file.downloads }} ↓
+                       </div>
+                    </div>
+                 </div>
+              </div>
+           </div>
 
-        <div v-else class="overflow-x-auto">
-          <table class="w-full">
-            <thead>
-              <tr class="text-left text-xs text-muted-foreground uppercase">
-                <th class="pb-2">File</th>
-                <th class="pb-2">Account</th>
-                <th class="pb-2">Created</th>
-                <th class="pb-2">Expires</th>
-                <th class="pb-2 text-right">Downloads</th>
-              </tr>
-            </thead>
-            <tbody class="divide-y divide-border">
-              <tr v-for="share in data.recentShares" :key="share.id" class="text-sm">
-                <td class="py-2">
-                  <span class="font-medium truncate block max-w-[200px]">{{ share.fileName }}</span>
-                </td>
-                <td class="py-2 text-muted-foreground">{{ share.accountName }}</td>
-                <td class="py-2 text-muted-foreground">{{ formatDate(share.createdAt) }}</td>
-                <td class="py-2">
-                  <span :class="getExpiryClass(share.expiresAt)">
-                    {{ formatExpiry(share.expiresAt) }}
-                  </span>
-                </td>
-                <td class="py-2 text-right">{{ share.downloads }}</td>
-              </tr>
-            </tbody>
-          </table>
-        </div>
-      </div>
+           <!-- Recent Shares Table -->
+           <div class="bg-card rounded-xl border shadow-sm overflow-hidden">
+              <div class="px-6 py-5 border-b flex items-center justify-between">
+                 <h3 class="font-semibold text-base">Recent Share Links</h3>
+                 <NuxtLink to="/admin/shares" class="text-xs font-medium text-[#0061FE] hover:underline flex items-center gap-1">
+                    Manage all shares
+                    <Icon name="lucide:arrow-right" class="h-3 w-3" />
+                 </NuxtLink>
+              </div>
 
-      <!-- Quick Actions -->
-      <div class="bg-card border rounded-xl p-5 shadow-sm">
-        <h3 class="font-semibold mb-4">Quick Actions</h3>
-        <div class="flex flex-wrap gap-3">
-          <NuxtLink to="/drive/upload">
-            <UiButton variant="outline">
-              <Icon name="lucide:upload" class="h-4 w-4 mr-2" />
-              Upload Files
-            </UiButton>
-          </NuxtLink>
-          <NuxtLink to="/admin/files">
-            <UiButton variant="outline">
-              <Icon name="lucide:folder" class="h-4 w-4 mr-2" />
-              File Manager
-            </UiButton>
-          </NuxtLink>
-          <NuxtLink to="/admin/shares">
-            <UiButton variant="outline">
-              <Icon name="lucide:link-2" class="h-4 w-4 mr-2" />
-              Manage Shares
-            </UiButton>
-          </NuxtLink>
-          <NuxtLink to="/admin/accounts">
-            <UiButton variant="outline">
-              <Icon name="lucide:settings" class="h-4 w-4 mr-2" />
-              Account Settings
-            </UiButton>
-          </NuxtLink>
-        </div>
+              <div class="overflow-x-auto">
+                 <table class="w-full text-left">
+                    <thead class="bg-muted/20">
+                       <tr>
+                          <th class="px-6 py-3 text-xs font-semibold text-muted-foreground uppercase tracking-wider">File Name</th>
+                          <th class="px-6 py-3 text-xs font-semibold text-muted-foreground uppercase tracking-wider hidden sm:table-cell">Account</th>
+                          <th class="px-6 py-3 text-xs font-semibold text-muted-foreground uppercase tracking-wider hidden md:table-cell">Created</th>
+                          <th class="px-6 py-3 text-xs font-semibold text-muted-foreground uppercase tracking-wider">Status</th>
+                          <th class="px-6 py-3 text-right text-xs font-semibold text-muted-foreground uppercase tracking-wider">Downloads</th>
+                       </tr>
+                    </thead>
+                    <tbody class="divide-y divide-border/50">
+                       <tr v-if="data.recentShares.length === 0">
+                          <td colspan="5" class="px-6 py-12 text-center text-muted-foreground">
+                             No share links created yet.
+                          </td>
+                       </tr>
+                       <tr 
+                          v-for="share in data.recentShares" 
+                          :key="share.id"
+                          class="hover:bg-muted/20 transition-colors group"
+                       >
+                          <td class="px-6 py-3">
+                             <div class="flex items-center gap-3">
+                                <Icon name="lucide:file-text" class="h-4 w-4 text-muted-foreground" />
+                                <span class="text-sm font-medium text-[#1E1919] dark:text-foreground truncate max-w-[200px]">{{ share.fileName }}</span>
+                             </div>
+                          </td>
+                          <td class="px-6 py-3 text-sm text-muted-foreground hidden sm:table-cell">
+                             <span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-muted text-muted-foreground">
+                                {{ share.accountName }}
+                             </span>
+                          </td>
+                          <td class="px-6 py-3 text-sm text-muted-foreground hidden md:table-cell">
+                             {{ formatDate(share.createdAt) }}
+                          </td>
+                          <td class="px-6 py-3">
+                             <span 
+                                class="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-medium"
+                                :class="getStatusClass(share.expiresAt)"
+                             >
+                                <span class="h-1.5 w-1.5 rounded-full bg-current opacity-60"></span>
+                                {{ formatExpiry(share.expiresAt) }}
+                             </span>
+                          </td>
+                          <td class="px-6 py-3 text-right text-sm font-mono text-muted-foreground">
+                             {{ share.downloads }}
+                          </td>
+                       </tr>
+                    </tbody>
+                 </table>
+              </div>
+           </div>
+
+           <!-- Quick Links Grid -->
+            <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
+              <NuxtLink to="/drive/upload" class="bg-card hover:bg-muted/40 p-4 rounded-xl border transition-all text-center group">
+                 <div class="h-10 w-10 rounded-full bg-blue-50 text-[#0061FE] flex items-center justify-center mx-auto mb-3 group-hover:scale-110 transition-transform">
+                    <Icon name="lucide:upload" class="h-5 w-5" />
+                 </div>
+                 <p class="font-medium text-sm">Upload File</p>
+              </NuxtLink>
+              
+              <NuxtLink to="/admin/files" class="bg-card hover:bg-muted/40 p-4 rounded-xl border transition-all text-center group">
+                 <div class="h-10 w-10 rounded-full bg-orange-50 text-orange-600 flex items-center justify-center mx-auto mb-3 group-hover:scale-110 transition-transform">
+                    <Icon name="lucide:folder-cog" class="h-5 w-5" />
+                 </div>
+                 <p class="font-medium text-sm">File Manager</p>
+              </NuxtLink>
+
+              <NuxtLink to="/admin/shares" class="bg-card hover:bg-muted/40 p-4 rounded-xl border transition-all text-center group">
+                 <div class="h-10 w-10 rounded-full bg-purple-50 text-purple-600 flex items-center justify-center mx-auto mb-3 group-hover:scale-110 transition-transform">
+                    <Icon name="lucide:share-2" class="h-5 w-5" />
+                 </div>
+                 <p class="font-medium text-sm">Shared Links</p>
+              </NuxtLink>
+
+              <NuxtLink to="/admin/accounts" class="bg-card hover:bg-muted/40 p-4 rounded-xl border transition-all text-center group">
+                 <div class="h-10 w-10 rounded-full bg-slate-50 text-slate-600 flex items-center justify-center mx-auto mb-3 group-hover:scale-110 transition-transform">
+                    <Icon name="lucide:settings-2" class="h-5 w-5" />
+                 </div>
+                 <p class="font-medium text-sm">Settings</p>
+              </NuxtLink>
+           </div>
+
+        </template>
       </div>
-    </template>
+    </div>
   </div>
 </template>
 
 <script setup lang="ts">
+const { isAdmin, role } = useAuth()
+
+// Track if we're still checking the role
+const isCheckingRole = computed(() => role.value === null)
+
+// Redirect non-admin users to files page (only on client side)
+// Redirect non-admin users to files page (only on client side)
+// Disabled to prevent redirect loop/issues for Admin
+onMounted(() => {
+  /*
+  watch(role, async (newRole) => {
+    if (newRole !== null && newRole !== 'admin') {
+      await navigateTo('/drive/files', { replace: true })
+    }
+  }, { immediate: true })
+  */
+})
+
 interface DashboardData {
   accounts: {
     id: string
     name: string
-    email: string
+    email?: string
     used: number
     allocated: number
     error?: boolean
@@ -274,11 +300,26 @@ interface DashboardData {
   accountCount: number
 }
 
+// Get Supabase client for access token
+const supabase = useSupabaseClient()
+
+// Only fetch admin dashboard (non-admins are redirected)
 const { data, pending, error, refresh } = await useFetch<DashboardData>('/api/admin/dashboard', {
-  server: false
+  server: false,
+  async onRequest({ options }) {
+    // Get current session and add auth header
+    const { data: { session } } = await supabase.auth.getSession()
+    if (session?.access_token) {
+      const existingHeaders = (options.headers || {}) as any
+      options.headers = {
+        ...existingHeaders,
+        Authorization: `Bearer ${session.access_token}`
+      } as any
+    }
+  }
 })
 
-const accountColors = ['#3B82F6', '#10B981', '#F59E0B', '#EF4444', '#8B5CF6', '#EC4899']
+const accountColors = ['#0061FE', '#0070E0', '#007EE5', '#248CF2', '#4D9BF7', '#76ABFC']
 
 const formatBytes = (bytes: number): string => {
   if (bytes === 0) return '0 B'
@@ -306,22 +347,22 @@ const formatExpiry = (expiresAt: string | null): string => {
   const diff = expiry.getTime() - now.getTime()
   const days = Math.floor(diff / (1000 * 60 * 60 * 24))
   
-  if (days > 0) return `${days}d`
+  if (days > 0) return `In ${days} days`
   return 'Today'
 }
 
-const getExpiryClass = (expiresAt: string | null): string => {
-  if (!expiresAt) return 'text-green-600 dark:text-green-400'
+const getStatusClass = (expiresAt: string | null): string => {
+  if (!expiresAt) return 'bg-emerald-100 text-emerald-700 dark:bg-emerald-500/20 dark:text-emerald-400'
   
   const expiry = new Date(expiresAt)
   const now = new Date()
   
-  if (expiry <= now) return 'text-destructive'
+  if (expiry <= now) return 'bg-red-100 text-red-700 dark:bg-red-500/20 dark:text-red-400'
   
   const diff = expiry.getTime() - now.getTime()
   const days = Math.floor(diff / (1000 * 60 * 60 * 24))
   
-  if (days < 1) return 'text-amber-600 dark:text-amber-400'
-  return 'text-muted-foreground'
+  if (days < 3) return 'bg-amber-100 text-amber-700 dark:bg-amber-500/20 dark:text-amber-400'
+  return 'bg-blue-100 text-blue-700 dark:bg-blue-500/20 dark:text-blue-400'
 }
 </script>

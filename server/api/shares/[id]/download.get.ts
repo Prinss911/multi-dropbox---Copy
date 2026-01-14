@@ -135,12 +135,18 @@ export default defineEventHandler(async (event) => {
         if (!isBatch && files.length === 1) {
             const file = files[0]
             try {
-                await dbx.filesGetMetadata({ path: file.path })
+                const metadata = await dbx.filesGetMetadata({ path: file.path })
+
+                // Update file size from actual metadata if it's a file
+                let size = file.size
+                if (metadata.result['.tag'] === 'file') {
+                    size = (metadata.result as any).size
+                }
 
                 return {
                     success: true,
                     fileName: file.name,
-                    files: [{ ...file, available: true }],
+                    files: [{ ...file, size, available: true }],
                     expiresAt: share.expiresAt,
                     downloadCount: share.downloadCount,
                     // No downloadUrl returned - use stream endpoint
