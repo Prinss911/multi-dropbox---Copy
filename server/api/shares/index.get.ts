@@ -32,7 +32,7 @@ export default defineEventHandler(async (event) => {
         // Add URL to each share
         const sharesWithUrl = accountShares.map(share => ({
             ...share,
-            url: `${protocol}://${host}/download/${share.id}`,
+            url: `${protocol}://${host}/file/${share.id}`,
             isExpired: new Date(share.expiresAt) < new Date()
         }))
 

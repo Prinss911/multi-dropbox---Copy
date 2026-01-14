@@ -148,6 +148,42 @@
         </div>
       </div>
     </Teleport>
+
+    <!-- Delete Confirm Dialog -->
+    <Teleport to="body">
+      <div 
+        v-if="deleteTarget" 
+        class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm"
+        @click.self="deleteTarget = null"
+      >
+        <div class="bg-card w-full max-w-sm rounded-lg shadow-lg border p-6">
+          <div class="flex items-center gap-3 mb-4">
+            <div class="p-2 rounded-full bg-destructive/10">
+              <Icon name="lucide:alert-triangle" class="h-5 w-5 text-destructive" />
+            </div>
+            <h3 class="font-semibold text-lg">Delete User</h3>
+          </div>
+          <p class="text-muted-foreground mb-6">
+            Are you sure you want to delete <strong>{{ deleteTarget.name || deleteTarget.email }}</strong>?
+            <br><br>
+            <span class="text-destructive text-sm">This action cannot be undone.</span>
+          </p>
+          <div class="flex gap-3 justify-end">
+            <UiButton variant="outline" @click="deleteTarget = null">
+              Cancel
+            </UiButton>
+            <UiButton 
+              variant="destructive"
+              :disabled="isDeleting"
+              @click="handleDeleteUser"
+            >
+              <Icon v-if="isDeleting" name="lucide:loader-2" class="h-4 w-4 mr-2 animate-spin" />
+              Delete
+            </UiButton>
+          </div>
+        </div>
+      </div>
+    </Teleport>
   </div>
 </template>
 
@@ -156,24 +192,23 @@ const client = useSupabaseClient()
 const { authFetch } = useAuthFetch()
 const { user: currentUser } = useAuth()
 const isLoading = ref(false)
+const isDeleting = ref(false)
+const deleteTarget = ref<any>(null)
 
 // Real data state
-const rawRoles = ref<any[]>([])
 const rawProfiles = ref<any[]>([])
 
 const fetchUsers = async () => {
   isLoading.value = true
   try {
-    const [roles, profiles] = await Promise.all([
-      client.from('user_roles').select('*'),
-      client.from('profiles').select('*')
-    ])
+    const { data, error } = await client
+      .from('profiles')
+      .select('*')
+      .order('created_at', { ascending: false })
     
-    if (roles.error) throw roles.error
-    if (profiles.error) throw profiles.error
+    if (error) throw error
     
-    rawRoles.value = roles.data || []
-    rawProfiles.value = profiles.data || []
+    rawProfiles.value = data || []
   } catch (err) {
     console.error('Failed to fetch users:', err)
   } finally {
@@ -181,17 +216,16 @@ const fetchUsers = async () => {
   }
 }
 
-// Computed users list merging roles and profiles
+// Computed users list from profiles
 const users = computed(() => {
-  return rawRoles.value.map(roleData => {
-    const profile = rawProfiles.value.find(p => p.id === roleData.user_id)
+  return rawProfiles.value.map(profile => {
     return {
-      id: roleData.user_id,
-      name: profile?.name || '',
-      email: profile?.email || 'Unknown',
-      role: roleData.role,
-      status: 'Active', // Todo: check auth.users confirmed_at via view or assume Active
-      lastLogin: 'Unknown' // Need access to auth.users to see this
+      id: profile.id,
+      name: profile.name || '',
+      email: profile.email || 'Unknown',
+      role: profile.role || 'user', // Default to user if null
+      status: profile.name ? 'Active' : 'Invited', // Assume invited if name not set
+      lastLogin: new Date(profile.updated_at || profile.created_at).toLocaleDateString()
     }
   })
 })
@@ -201,7 +235,7 @@ const editingUser = ref<any>(null)
 const formData = reactive({
   name: '',
   email: '',
-  role: 'User',
+  role: 'user',
   status: 'Active'
 })
 
@@ -231,7 +265,7 @@ const openModal = (user: any = null) => {
     // Invite defaults
     formData.name = ''
     formData.email = ''
-    formData.role = 'user' // lowercase to match db enum
+    formData.role = 'user'
     formData.status = 'Invited' 
   }
   isModalOpen.value = true
@@ -242,33 +276,32 @@ const saveUser = async () => {
   try {
     if (editingUser.value) {
       // Update existing
-      // Only Role and Name can be updated here for now
-      // 1. Update Profile
-      const { error: profileError } = await client
+      // Update Profile (Name & Role)
+      const { error } = await client
         .from('profiles')
-        .update({ name: formData.name })
+        .update({ 
+            name: formData.name,
+            role: formData.role.toLowerCase() 
+        })
         .eq('id', editingUser.value.id)
       
-      if (profileError) throw profileError
+      if (error) throw error
 
-      // 2. Update Role (only if changed and not self to avoid lockout)
-      if (editingUser.value.role !== formData.role) {
-         const { error: roleError } = await client
-            .from('user_roles')
-            .update({ role: formData.role.toLowerCase() })
-            .eq('user_id', editingUser.value.id)
-         
-         if (roleError) throw roleError
-      }
     } else {
       // Invite New User
-      await authFetch('/api/auth/invite', {
+      const response = await authFetch('/api/auth/invite', {
         method: 'POST',
         body: {
             email: formData.email,
             role: formData.role.toLowerCase()
         }
       })
+      
+      if (response.link) {
+          alert(`Invitation sent! \n\nIMPORTANT: Use this link if the email doesn't arrive:\n${response.link}`)
+      } else {
+          alert('Invitation sent! Please check your email inbox.')
+      }
     }
     
     isModalOpen.value = false
@@ -280,24 +313,51 @@ const saveUser = async () => {
   }
 }
 
-const deleteUser = async (user: any) => {
-  if (confirm(`Are you sure you want to remove ${user.name || user.email}?`)) {
-    // TODO: Implement delete API
-    alert('Delete functionality not yet implemented (requires Admin API)')
+const deleteUser = (user: any) => {
+  // Prevent deleting yourself
+  if (user.id === currentUser.value?.id) {
+    alert('You cannot delete your own account!')
+    return
+  }
+
+  // Open delete confirmation modal
+  deleteTarget.value = user
+}
+
+const handleDeleteUser = async () => {
+  if (!deleteTarget.value) return
+
+  isDeleting.value = true
+  try {
+    await authFetch(`/api/user/${deleteTarget.value.id}`, {
+      method: 'DELETE'
+    })
+    
+    deleteTarget.value = null
+    await fetchUsers() // Refresh list
+  } catch (err: any) {
+    console.error('Delete user error:', err)
+    alert(err.data?.message || err.message || 'Failed to delete user')
+  } finally {
+    isDeleting.value = false
   }
 }
 
 const resendInvite = async (user: any) => {
   if (confirm(`Resend invitation to ${user.email}?`)) {
       try {
-        await authFetch('/api/auth/invite', {
+        const response = await authFetch('/api/auth/invite', {
             method: 'POST',
             body: {
                 email: user.email,
                 role: user.role
             }
         })
-        alert('Invitation resent.')
+        if (response.link) {
+             alert(`Invitation resent! \n\nLink: ${response.link}`)
+        } else {
+             alert('Invitation email resent. Please check the inbox.')
+        }
       } catch (err: any) {
         alert(err.message)
       }

@@ -1,7 +1,9 @@
 // https://nuxt.com/docs/api/configuration/nuxt-config
 export default defineNuxtConfig({
   compatibilityDate: '2024-11-01',
-  devtools: { enabled: true },
+  devtools: {
+    enabled: true
+  },
 
   modules: [
     '@nuxtjs/tailwindcss',
@@ -11,9 +13,26 @@ export default defineNuxtConfig({
     '@nuxt/fonts',
   ],
 
+  css: [
+    'video.js/dist/video-js.css'
+  ],
+
   // Cloudflare Pages deployment
   nitro: {
     preset: 'cloudflare_pages'
+  },
+
+  routeRules: {
+    '/upload': { redirect: '/drive/upload' },
+    '/user': { redirect: '/drive' },
+    '/download/**': { redirect: '/file/**' }
+  },
+
+  // Allow Cloudflare Tunnel hosts
+  vite: {
+    server: {
+      allowedHosts: true
+    }
   },
 
   tailwindcss: {

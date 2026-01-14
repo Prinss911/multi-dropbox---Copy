@@ -61,14 +61,23 @@ export default defineEventHandler(async (event) => {
             })
         }
 
-        if (new Date(share.expiresAt) < new Date()) {
+        // Check expiration (skip if never expires - null)
+        if (share.expiresAt && new Date(share.expiresAt) < new Date()) {
             throw createError({
                 statusCode: 410,
                 statusMessage: 'This share link has expired'
             })
         }
 
-        const files = share.files || []
+        // Get files array with fallback for legacy shares
+        let files = share.files || []
+        if (files.length === 0 && share.filePath) {
+            files = [{
+                name: share.fileName,
+                path: share.filePath,
+                size: 0
+            }]
+        }
 
         if (files.length === 0 || fileIndex < 0 || fileIndex >= files.length) {
             throw createError({

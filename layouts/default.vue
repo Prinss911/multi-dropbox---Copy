@@ -21,8 +21,8 @@
         </a>
       </div>
       
-      <!-- Account Selector -->
-      <div class="p-3 border-b">
+      <!-- Account Selector (Admin only) -->
+      <div v-if="isAdmin" class="p-3 border-b">
         <div class="text-xs font-semibold text-muted-foreground tracking-wider uppercase mb-2 px-1">
           Accounts
         </div>
@@ -65,53 +65,56 @@
       <div class="flex-1 py-4 px-3 space-y-1 overflow-auto min-h-0">
          <div class="px-2 mb-2 text-xs font-semibold text-muted-foreground tracking-wider uppercase">Storage</div>
          <nav class="space-y-1">
+            <!-- My Files - For regular users only (their uploaded files) -->
             <NuxtLink 
-              to="/user" 
+              v-if="!isAdmin"
+              to="/drive" 
               :class="[
                 'flex items-center gap-3 px-3 py-2 text-sm font-medium rounded-md transition-colors',
-                route.path === '/user' ? 'bg-accent text-accent-foreground' : 'text-muted-foreground hover:bg-muted hover:text-foreground'
+                route.path.startsWith('/drive') ? 'bg-accent text-accent-foreground' : 'text-muted-foreground hover:bg-muted hover:text-foreground'
               ]"
             >
-               <Icon name="lucide:list" class="h-4 w-4" />
-               My Uploads
+               <Icon name="lucide:folder" class="h-4 w-4" />
+               My Files
             </NuxtLink>
             
+            <!-- Admin Storage Section -->
             <template v-if="isAdmin">
             <NuxtLink 
-              to="/files" 
+              to="/admin/files" 
               :class="[
                 'flex items-center gap-3 px-3 py-2 text-sm font-medium rounded-md transition-colors',
-                route.path.startsWith('/files') ? 'bg-accent text-accent-foreground' : 'text-muted-foreground hover:bg-muted hover:text-foreground'
+                route.path === '/admin/files' ? 'bg-accent text-accent-foreground' : 'text-muted-foreground hover:bg-muted hover:text-foreground'
               ]"
             >
                <Icon name="lucide:hard-drive" class="h-4 w-4" />
-               My Files
+               File Manager
             </NuxtLink>
             <NuxtLink 
-              to="/split" 
+              to="/admin/split" 
               :class="[
                 'flex items-center gap-3 px-3 py-2 text-sm font-medium rounded-md transition-colors',
-                route.path === '/split' ? 'bg-accent text-accent-foreground' : 'text-muted-foreground hover:bg-muted hover:text-foreground'
+                route.path === '/admin/split' ? 'bg-accent text-accent-foreground' : 'text-muted-foreground hover:bg-muted hover:text-foreground'
               ]"
             >
                <Icon name="lucide:columns" class="h-4 w-4" />
                Split View
             </NuxtLink>
             <NuxtLink 
-              to="/recent" 
+              to="/admin/shares" 
               :class="[
                 'flex items-center gap-3 px-3 py-2 text-sm font-medium rounded-md transition-colors',
-                route.path === '/recent' ? 'bg-accent text-accent-foreground' : 'text-muted-foreground hover:bg-muted hover:text-foreground'
+                route.path === '/admin/shares' ? 'bg-accent text-accent-foreground' : 'text-muted-foreground hover:bg-muted hover:text-foreground'
               ]"
             >
-               <Icon name="lucide:clock" class="h-4 w-4" />
-               Recent
+               <Icon name="lucide:link-2" class="h-4 w-4" />
+               Shared Links
             </NuxtLink>
             <NuxtLink 
-              to="/trash" 
+              to="/admin/trash" 
               :class="[
                 'flex items-center gap-3 px-3 py-2 text-sm font-medium rounded-md transition-colors',
-                route.path === '/trash' ? 'bg-accent text-accent-foreground' : 'text-muted-foreground hover:bg-muted hover:text-foreground'
+                route.path === '/admin/trash' ? 'bg-accent text-accent-foreground' : 'text-muted-foreground hover:bg-muted hover:text-foreground'
               ]"
             >
                <Icon name="lucide:trash-2" class="h-4 w-4" />
@@ -120,29 +123,31 @@
             </template>
           </nav>
           
-          <div class="px-2 mt-4 mb-2 text-xs font-semibold text-muted-foreground tracking-wider uppercase">Management</div>
-          <nav class="space-y-1">
+          <div v-if="isAdmin">
+           <div class="px-2 mt-4 mb-2 text-xs font-semibold text-muted-foreground tracking-wider uppercase">Management</div>
+           <nav class="space-y-1">
+              <NuxtLink 
+               to="/admin/users" 
+               :class="[
+                 'flex items-center gap-3 px-3 py-2 text-sm font-medium rounded-md transition-colors',
+                 route.path === '/admin/users' ? 'bg-accent text-accent-foreground' : 'text-muted-foreground hover:bg-muted hover:text-foreground'
+               ]"
+             >
+                <Icon name="lucide:users" class="h-4 w-4" />
+                Users
+             </NuxtLink>
              <NuxtLink 
-              to="/users" 
-              :class="[
-                'flex items-center gap-3 px-3 py-2 text-sm font-medium rounded-md transition-colors',
-                route.path === '/users' ? 'bg-accent text-accent-foreground' : 'text-muted-foreground hover:bg-muted hover:text-foreground'
-              ]"
-            >
-               <Icon name="lucide:users" class="h-4 w-4" />
-               Users
-            </NuxtLink>
-            <NuxtLink 
-              to="/accounts" 
-              :class="[
-                'flex items-center gap-3 px-3 py-2 text-sm font-medium rounded-md transition-colors',
-                route.path === '/accounts' ? 'bg-accent text-accent-foreground' : 'text-muted-foreground hover:bg-muted hover:text-foreground'
-              ]"
-            >
-               <Icon name="lucide:settings" class="h-4 w-4" />
-               Accounts
-            </NuxtLink>
-          </nav>
+               to="/admin/accounts" 
+               :class="[
+                 'flex items-center gap-3 px-3 py-2 text-sm font-medium rounded-md transition-colors',
+                 route.path === '/admin/accounts' ? 'bg-accent text-accent-foreground' : 'text-muted-foreground hover:bg-muted hover:text-foreground'
+               ]"
+             >
+                <Icon name="lucide:settings" class="h-4 w-4" />
+                Accounts
+             </NuxtLink>
+           </nav>
+          </div>
       </div>
       
       <!-- User Profile & Logout -->
@@ -167,85 +172,24 @@
         </UiButton>
       </div>
       
-      <!-- Active Account & Combined Storage -->
-      <div class="p-3 border-t space-y-3">
-        <!-- Combined Storage (All Accounts) -->
-        <div class="bg-gradient-to-br from-blue-500/10 to-purple-500/10 rounded-lg p-3 space-y-2 group cursor-pointer" @click="showStorageDetails = !showStorageDetails">
-          <div class="flex items-center justify-between">
-            <div class="flex items-center gap-2">
-              <Icon name="lucide:database" class="h-4 w-4 text-primary" />
-              <span class="text-xs font-semibold uppercase tracking-wider">Storage</span>
-            </div>
-            <Icon 
-              :name="showStorageDetails ? 'lucide:chevron-up' : 'lucide:chevron-down'" 
-              class="h-3 w-3 text-muted-foreground transition-transform duration-200"
-              :class="showStorageDetails ? '' : '-rotate-90 md:rotate-0 md:opacity-0 md:group-hover:opacity-100'"
-            />
+      <!-- Storage Info (Admin only) - Compact version -->
+      <div v-if="isAdmin && combinedStorage" class="p-3 border-t">
+        <div class="flex items-center justify-between mb-2">
+          <div class="flex items-center gap-2">
+            <Icon name="lucide:database" class="h-4 w-4 text-primary" />
+            <span class="text-xs font-semibold uppercase tracking-wider">Storage</span>
           </div>
-          
-          <div v-if="combinedStorage" class="space-y-2">
-            <div class="flex flex-col gap-1">
-              <div class="flex items-baseline gap-1.5 flex-wrap">
-                <span class="text-lg font-bold leading-none">{{ formatBytes(combinedStorage.totalUsed) }}</span>
-                <span class="text-xs text-muted-foreground whitespace-nowrap">of {{ formatBytes(combinedStorage.totalAllocated) }}</span>
-              </div>
-            </div>
-            
-            <div class="w-full bg-muted rounded-full h-1.5 overflow-hidden">
-              <div 
-                class="h-full rounded-full transition-all duration-300 bg-gradient-to-r from-blue-500 to-purple-500"
-                :style="{ width: combinedStoragePercentage + '%' }"
-              ></div>
-            </div>
-            
-            <!-- Details (Collapsible) -->
-            <div 
-              class="grid transition-all duration-300 ease-in-out"
-              :class="showStorageDetails ? 'grid-rows-[1fr] opacity-100 pt-2 border-t border-border/50 mt-1' : 'grid-rows-[0fr] opacity-0'"
-            >
-              <div class="overflow-hidden space-y-2">
-                <div class="text-xs text-muted-foreground">
-                  {{ combinedStoragePercentage.toFixed(1) }}% used across {{ combinedStorage.accounts.length }} account(s)
-                </div>
-                <div class="space-y-1.5 max-h-32 overflow-auto custom-scrollbar">
-                  <div 
-                    v-for="acc in combinedStorage.accounts" 
-                    :key="acc.accountId"
-                    class="flex items-center justify-between text-xs"
-                  >
-                    <span class="text-muted-foreground truncate flex-1 pr-2">{{ acc.accountName }}</span>
-                    <span class="font-medium whitespace-nowrap">{{ formatBytes(acc.used) }}</span>
-                  </div>
-                </div>
-              </div>
-            </div>
-          </div>
-          <div v-else-if="isLoadingStorage" class="flex items-center gap-2 text-xs text-muted-foreground py-2">
-            <Icon name="lucide:loader-2" class="h-4 w-4 animate-spin" />
-            Wait...
-          </div>
+          <span class="text-xs text-muted-foreground">{{ combinedStoragePercentage.toFixed(0) }}%</span>
         </div>
-        
-        <!-- Active Account Info -->
-        <div v-if="activeAccount" class="bg-muted/50 rounded-lg p-3">
-           <div class="flex items-center gap-3">
-              <div class="h-8 w-8 rounded-full bg-blue-100 flex items-center justify-center text-blue-600 font-bold text-sm">
-                 {{ activeAccount.name.charAt(0).toUpperCase() }}
-              </div>
-              <div class="text-sm overflow-hidden flex-1">
-                 <p class="font-medium truncate">{{ activeAccount.name }}</p>
-                 <p class="text-xs text-muted-foreground truncate">{{ activeAccount.email || 'Active account' }}</p>
-              </div>
-           </div>
-           <UiButton 
-             v-if="accounts.length > 1"
-             variant="outline" 
-             size="sm" 
-             class="w-full text-xs h-7 text-destructive hover:text-destructive mt-3"
-             @click="handleRemoveAccount(activeAccount.id)"
-           >
-              Remove Account
-           </UiButton>
+        <div class="flex items-baseline gap-1.5 mb-2">
+          <span class="text-sm font-bold">{{ formatBytes(combinedStorage.totalUsed) }}</span>
+          <span class="text-xs text-muted-foreground">of {{ formatBytes(combinedStorage.totalAllocated) }}</span>
+        </div>
+        <div class="w-full bg-muted rounded-full h-1.5 overflow-hidden">
+          <div 
+            class="h-full rounded-full bg-gradient-to-r from-blue-500 to-purple-500"
+            :style="{ width: combinedStoragePercentage + '%' }"
+          ></div>
         </div>
       </div>
     </aside>
@@ -255,7 +199,7 @@
         <header class="h-14 border-b bg-background/95 backdrop-blur flex items-center justify-between px-6 sticky top-0 z-10">
            <div class="flex items-center gap-4">
               <h1 class="font-semibold text-lg">
-                {{ activeAccount?.name || 'My Files' }}
+                {{ isAdmin ? (activeAccount?.name || 'My Files') : 'My Files' }}
               </h1>
            </div>
            <div class="flex items-center gap-2">

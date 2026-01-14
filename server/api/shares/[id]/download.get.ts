@@ -62,8 +62,8 @@ export default defineEventHandler(async (event) => {
             })
         }
 
-        // Check expiration
-        if (new Date(share.expiresAt) < new Date()) {
+        // Check expiration (skip if never expires - null)
+        if (share.expiresAt && new Date(share.expiresAt) < new Date()) {
             throw createError({
                 statusCode: 410,
                 statusMessage: 'This share link has expired'
@@ -86,7 +86,16 @@ export default defineEventHandler(async (event) => {
         const dbx = createDropboxClient(accessToken)
 
         // Determine which file(s) to return
-        const files = share.files || []
+        // Fallback for legacy shares without files array
+        let files = share.files || []
+        if (files.length === 0 && share.filePath) {
+            // Legacy share - construct files array from single file info
+            files = [{
+                name: share.fileName,
+                path: share.filePath,
+                size: 0
+            }]
+        }
         const isBatch = files.length > 1
 
         // If fileIndex is provided, get specific file download link

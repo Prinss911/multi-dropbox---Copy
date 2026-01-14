@@ -20,24 +20,25 @@ export const useAuth = () => {
         }
 
         // Fallback/Verify with DB (using RLS policy)
-        console.log('[fetchRole] Fetching from DB for user:', user.value.id)
+        console.log('[fetchRole] Fetching from DB (profiles) for user:', user.value.id)
         const { data, error } = await client
-            .from('user_roles')
+            .from('profiles')
             .select('role')
-            .eq('user_id', user.value.id)
+            .eq('id', user.value.id)
             .single()
 
         if (error) {
             console.error('[fetchRole] DB Error:', error)
         }
 
-        if (data) {
+        if (data && data.role) {
             console.log('[fetchRole] DB Role found:', data.role)
             role.value = data.role
             return data.role
         } else {
-            console.log('[fetchRole] No role found in DB')
-            return null
+            console.log('[fetchRole] No role found in DB, defaulting to user')
+            role.value = 'user'
+            return 'user'
         }
     }
 

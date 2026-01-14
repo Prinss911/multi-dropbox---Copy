@@ -131,9 +131,13 @@ export const useDropboxFiles = (explicitAccountId?: string) => {
         }
     }
 
+    // Auth Fetch Wrapper for operations requiring RLS context
+    const { authFetch } = useAuthFetch()
+
     const deleteItem = async (path: string): Promise<boolean> => {
         try {
-            await $fetch('/api/dropbox/delete', {
+            // Use authFetch to pass user context for DB cleanup
+            await authFetch('/api/dropbox/delete', {
                 method: 'POST',
                 body: { path, accountId: targetAccountId.value }
             })
@@ -147,6 +151,8 @@ export const useDropboxFiles = (explicitAccountId?: string) => {
 
     const bulkDelete = async (paths: string[]): Promise<boolean> => {
         try {
+            // Bulk delete API might need update for RLS too if it touches 'files' table
+            // For now, let's keep it as is or update if we implement bulk file tracking cleanup
             await $fetch('/api/dropbox/bulk-delete', {
                 method: 'POST',
                 body: { paths, accountId: targetAccountId.value }
@@ -253,8 +259,8 @@ export const useDropboxFiles = (explicitAccountId?: string) => {
     const uploadFiles = async (fileList: FileList): Promise<boolean> => {
         try {
             // Get upload session
-            const session = await $fetch<{ accessToken: string; uploadPath: string }>('/api/dropbox/upload-session', {
-                query: { path: currentPath.value }
+            const session = await $fetch<{ accessToken: string; uploadPath: string; accountId: string }>('/api/dropbox/upload-session', {
+                query: { path: currentPath.value, accountId: targetAccountId.value }
             })
 
             // Upload files one by one to track progress
@@ -279,6 +285,25 @@ export const useDropboxFiles = (explicitAccountId?: string) => {
                 if (!response.ok) {
                     const errorData = await response.json()
                     throw new Error(errorData.error_summary || `Failed to upload ${file.name}`)
+                }
+
+                // Record upload in database for User Mapping
+                try {
+                    // Use authFetch to pass user context for RLS
+                    await authFetch('/api/dropbox/record-upload', {
+                        method: 'POST',
+                        body: {
+                            filename: file.name,
+                            dropboxPath: filePath,
+                            size: file.size,
+                            contentType: file.type,
+                            dropboxAccountId: session.accountId || targetAccountId.value
+                        }
+                    })
+                } catch (recordError) {
+                    console.error('Failed to record upload in DB:', recordError)
+                    // We don't throw here to avoid failing the whole batch if just DB record fails
+                    // The file IS in Dropbox.
                 }
             }
 
@@ -387,7 +412,6 @@ export const useDropboxFiles = (explicitAccountId?: string) => {
         return colorMap[ext || ''] || 'text-gray-600 bg-gray-50 dark:bg-gray-900/30'
     }
 
-    // Get folders for move destination picker
     const getFolders = async (path: string = ''): Promise<DropboxEntry[]> => {
         try {
             const response = await $fetch<DropboxListResponse>('/api/dropbox/files', {

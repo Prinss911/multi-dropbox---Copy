@@ -144,7 +144,7 @@ export default defineEventHandler(async (event) => {
         // Get base URL
         const host = getHeader(event, 'host') || 'localhost:3000'
         const protocol = host.includes('localhost') ? 'http' : 'https'
-        const shareUrl = `${protocol}://${host}/download/${share.id}`
+        const shareUrl = `${protocol}://${host}/file/${share.id}`
 
         return {
             success: true,

@@ -7,10 +7,22 @@ export function getSupabase(): SupabaseClient {
 
     const config = useRuntimeConfig()
 
-    supabaseClient = createClient(
-        config.supabaseUrl,
-        config.supabaseServiceKey
-    )
+    // Get values with fallback to environment variables
+    const supabaseUrl = config.supabaseUrl || process.env.SUPABASE_URL
+    const supabaseServiceKey = config.supabaseServiceKey || process.env.SUPABASE_SERVICE_KEY
+
+    // Validate required credentials
+    if (!supabaseUrl) {
+        console.error('[accounts.ts] SUPABASE_URL is missing!')
+        throw new Error('Missing SUPABASE_URL - check your .env file')
+    }
+
+    if (!supabaseServiceKey) {
+        console.error('[accounts.ts] SUPABASE_SERVICE_KEY is missing!')
+        throw new Error('Missing SUPABASE_SERVICE_KEY - check your .env file')
+    }
+
+    supabaseClient = createClient(supabaseUrl, supabaseServiceKey)
 
     return supabaseClient
 }

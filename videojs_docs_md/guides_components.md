@@ -1,0 +1,532 @@
+---
+source_url: https://videojs.org/guides/components/
+scraped_at: 2026-01-09
+---
+
+# Documentation Scraped from https://videojs.org/guides/components/
+
+## Video.js Guides
+
+These guides cover a range of topics for users of Video.js
+
+[Back to Guides](/guides)
+
+# Components
+
+## Table of Contents
+
+* [What is a Component?](#what-is-a-component)
+* [Adding a Component](#adding-a-component)
+* [Creating a Component](#creating-a-component)
+* [Component Children](#component-children)
+  + [Basic Example](#basic-example)
+  + [Using Options](#using-options)
+* [Event Listening](#event-listening)
+  + [Using on](#using-on)
+  + [Using off](#using-off)
+  + [Using one](#using-one)
+  + [Using trigger](#using-trigger)
+* [Default Component Tree](#default-component-tree)
+* [Specific Component Details](#specific-component-details)
+  + [Play Toggle](#play-toggle)
+  + [Volume Panel](#volume-panel)
+  + [Text Track Settings](#text-track-settings)
+  + [Resize Manager](#resize-manager)
+
+**NOTE:** This guide is focused on Video.js 8+. It no longer mentions use of the `videojs.extend()` method, which was removed in 8.0. Please see [our migration guide](/guides/videojs-7-to-8/) for further information!
+
+The architecture of the Video.js player is centered around components.
+
+The `Player` class and all classes representing player controls and other UI elements inherit from the `Component` class. This architecture makes it easy to construct the user interface of the Video.js player in a tree-like structure that mirrors the DOM.
+
+## What is a Component?
+
+A component is a JavaScript object that has the following features:
+
+* An associated DOM element, in almost all cases.
+* An association to a `Player` object.
+* The ability to manage any number of child components.
+* The ability to listen for and trigger events.
+* A lifecycle of initialization and disposal.
+
+For more specifics on the programmatic interface of a component, see [the component API docs](https://docs.videojs.com/Component.html).
+
+## Adding a Component
+
+An instance of a component can be created with `new Component()`.
+
+```javascript
+// Creating an instance of a button
+var player = videojs('some-video-id');
+var Button = videojs.getComponent('Button');
+var button = new Button(player, {
+  clickHandler: function(event) {
+    videojs.log('Clicked');
+  }
+});
+
+console.log(button.el());
+```
+
+The above code will output
+
+```javascript
+<button class="vjs-control vjs-button" type="button" aria-disabled="false">
+  <span class="vjs-icon-placeholder" aria-hidden="true"></span>
+  <span class="vjs-control-text" aria-live="polite"></span>
+</button>
+```
+
+Note that this has created the button, but not added it to the DOM. Adding it as a child of a component will add it to the DOM.
+
+```javascript
+player.getChild('ControlBar').addChild(button);
+```
+
+Alternatively by passing the name of a component to `addChild`, a new instance of the component will be created and added in one step.
+
+```javascript
+// Creating an instance of a button and addingit to the player's control bar
+var player = videojs('some-video-id');
+var button = player.getChild('ControlBar').addChild('button', {
+  clickHandler: function(event) {
+    videojs.log('Clicked');
+  }
+});
+
+console.log(button.el());
+// will have the same html result as the previous example
+```
+
+Buttons should have text. The default buttons don't display their text, but it is present for screenreaders and displayed by browsers as a tooltip. The text of the button can be set as an option:
+
+```javascript
+const myButton = player.getChild('ControlBar').addChild('button', {controlText: 'My button'});
+```
+
+To have the control text displayed, add a `vjs-visibile-text` class to the button.
+
+```javascript
+const myButton = player.getChild('ControlBar').addChild('button', {
+  controlText: 'My button',
+  className: 'vjs-visible-text'
+});
+```
+
+Classes and control text could also be set after a button is created.
+
+```javascript
+myButton.controlText('My button');
+myButton.addClass('vjs-visible-text');
+```
+
+When the [`experimentalSvgIcons`](/guides/options/#experimentalSvgIcons) option is enabled on the player, icons can be added or replaced on any `Component` using the `setIcon` method.
+
+You can view all of the icons available by renaming [`sandbox/svg-icons.html.example`](https://github.com/videojs/video.js/blob/main/sandbox/svg-icons.html.example) to `sandbox/svg-icons.html`, building Video.js with `npm run build`, and opening `sandbox/svg-icons.html` in your browser of choice.
+
+```javascript
+myButton.setIcon('play');
+```
+
+## Creating a Component
+
+Video.js components are es6 classes that can be extended using class syntax and registered with Video.js to add new features and UI to the player.
+
+There are a few functions used for creating and registering components:
+
+* `videojs.getComponent(String name)`: Retrieves component classes from Video.js.
+* `videojs.registerComponent(String name, Function Comp)`: Registers component classes with Video.js.
+
+This example creates a title bar component, as a class extending `Component`.
+
+```javascript
+// Get the Component base class from Video.js
+const Component = videojs.getComponent('Component');
+
+class TitleBar extends Component {
+
+  // The constructor of a component receives two arguments: the
+  // player it will be associated with and an object of options.
+  constructor(player, options = {}) {
+
+    // It is important to invoke the superclass before anything else, 
+    // to get all the features of components out of the box!
+    super(player, options);
+
+    // If a `text` option was passed in, update the text content of 
+    // the component.
+    if (options.text) {
+      this.updateTextContent(options.text);
+    }
+  }
+
+  // The `createEl` function of a component creates its DOM element.
+  createEl() {
+    return videojs.dom.createEl('div', {
+
+      // Prefixing classes of elements within a player with "vjs-" 
+      // is a convention used in Video.js.
+      className: 'vjs-title-bar'
+    });
+  }
+
+  // This function could be called at any time to update the text 
+  // contents of the component.
+  updateTextContent(text) {
+
+    // If no text was provided, default to "Title Unknown"
+    if (typeof text !== 'string') {
+      text = 'Title Unknown';
+    }
+
+    // Use Video.js utility DOM methods to manipulate the content
+    // of the component's element.
+    videojs.emptyEl(this.el());
+    videojs.appendContent(this.el(), text);
+  }
+}
+```
+
+Note that due to the removal of the `extend()` function, to extend a component when transpiling to ES5, you will need to utilize the following syntax.
+
+```javascript
+// My ES5 constructor function extending Component
+function MyComponent(arguments) {
+  Component.call(this, arguments);
+}
+
+MyComponent.prototype = Object.create(Component.prototype);
+```
+
+Once the component is created, it can be registered, and used in a player.
+
+```javascript
+// Register the component with Video.js, so it can be used in players.
+videojs.registerComponent('TitleBar', TitleBar);
+
+// Create a player.
+var player = videojs('my-player');
+
+// Add the TitleBar as a child of the player and provide it some text 
+// in its options.
+player.addChild('TitleBar', {text: 'The Title of The Video!'});
+```
+
+A live example is in [this JSBin](https://jsbin.com/vobacas/edit?html,css,js,output).
+
+## Component Children
+
+Again, refer to [the component API docs](https://docs.videojs.com/Component.html) for complete details on methods available for managing component structures.
+
+### Basic Example
+
+When a child component is added to a parent component, Video.js inserts the element of the child into the element of the parent. For example, adding a component like this:
+
+```javascript
+// Add a "BigPlayButton" component to the player. Its element will be appended to the player's element.
+player.addChild('BigPlayButton');
+```
+
+Results in a DOM that looks like this:
+
+```javascript
+<!-- Player Element -->
+<div class="video-js">
+  <!-- BigPlayButton Element -->
+  <div class="vjs-big-play-button"></div>
+</div>
+```
+
+Conversely, removing child components will remove the child component's element from the DOM:
+
+```javascript
+player.removeChild('BigPlayButton');
+```
+
+Results in a DOM that looks like this:
+
+```javascript
+<!-- Player Element -->
+<div class="video-js">
+</div>
+```
+
+### Using Options
+
+Pass in options for child constructors and options for children of the child.
+
+```javascript
+var player = videojs('some-vid-id');
+var Component = videojs.getComponent('Component');
+var myComponent = new Component(player);
+var myButton = myComponent.addChild('MyButton', {
+  text: 'Press Me',
+  buttonChildExample: {
+    buttonChildOption: true
+  }
+});
+```
+
+Children can also be added via options when a component is initialized.
+
+> Note: Include a 'name' key which will be used if two child components of the same
+> type that need different options.
+
+```javascript
+// MyComponent is from the above example
+var myComp = new MyComponent(player, {
+  children: ['button', {
+    name: 'button',
+    someOtherOption: true
+  }, {
+    name: 'button',
+    someOtherOption: false
+  }]
+});
+```
+
+## Event Listening
+
+### Using `on`
+
+```javascript
+var player = videojs('some-player-id');
+var Component = videojs.getComponent('Component');
+var myComponent = new Component(player);
+var myFunc = function() {
+  var myComponent = this;
+  console.log('myFunc called');
+};
+
+myComponent.on('eventType', myFunc);
+myComponent.trigger('eventType');
+// logs 'myFunc called'
+```
+
+The context of `myFunc` will be `myComponent` unless it is bound. You can add
+a listener to another element or component.
+
+```javascript
+var otherComponent = new Component(player);
+
+// myComponent/myFunc is from the above example
+myComponent.on(otherComponent.el(), 'eventName', myFunc);
+myComponent.on(otherComponent, 'eventName', myFunc);
+
+otherComponent.trigger('eventName');
+// logs 'myFunc called' twice
+```
+
+### Using `off`
+
+```javascript
+var player = videojs('some-player-id');
+var Component = videojs.getComponent('Component');
+var myComponent = new Component(player);
+var myFunc = function() {
+  var myComponent = this;
+  console.log('myFunc called');
+};
+myComponent.on('eventType', myFunc);
+myComponent.trigger('eventType');
+// logs 'myFunc called'
+
+myComponent.off('eventType', myFunc);
+myComponent.trigger('eventType');
+// does nothing
+```
+
+If myFunc gets excluded, *all* listeners for the event type will get removed. If
+eventType gets excluded, *all* listeners will get removed from the component.
+You can use `off` to remove listeners that get added to other elements or
+components using:
+
+`myComponent.on(otherComponent...`
+
+In this case both the event type and listener function are **REQUIRED**.
+
+```javascript
+var otherComponent = new Component(player);
+
+// myComponent/myFunc is from the above example
+myComponent.on(otherComponent.el(), 'eventName', myFunc);
+myComponent.on(otherComponent, 'eventName', myFunc);
+
+otherComponent.trigger('eventName');
+// logs 'myFunc called' twice
+myComponent.off(otherComponent.el(), 'eventName', myFunc);
+myComponent.off(otherComponent, 'eventName', myFunc);
+otherComponent.trigger('eventName');
+// does nothing
+```
+
+### Using `one`
+
+```javascript
+var player = videojs('some-player-id');
+var Component = videojs.getComponent('Component');
+var myComponent = new Component(player);
+var myFunc = function() {
+  var myComponent = this;
+  console.log('myFunc called');
+};
+myComponent.one('eventName', myFunc);
+myComponent.trigger('eventName');
+// logs 'myFunc called'
+
+myComponent.trigger('eventName');
+// does nothing
+```
+
+You can also add a listener to another element or component that will get
+triggered only once.
+
+```javascript
+var otherComponent = new Component(player);
+
+// myComponent/myFunc is from the above example
+myComponent.one(otherComponent.el(), 'eventName', myFunc);
+myComponent.one(otherComponent, 'eventName', myFunc);
+
+otherComponent.trigger('eventName');
+// logs 'myFunc called' twice
+
+otherComponent.trigger('eventName');
+// does nothing
+```
+
+### Using `trigger`
+
+```javascript
+var player = videojs('some-player-id');
+var Component = videojs.getComponent('Component');
+var myComponent = new Component(player);
+var myFunc = function(data) {
+  var myComponent = this;
+  console.log('myFunc called');
+  console.log(data);
+};
+myComponent.one('eventName', myFunc);
+myComponent.trigger('eventName');
+// logs 'myFunc called' and 'undefined'
+
+myComponent.trigger({'type':'eventName'});
+// logs 'myFunc called' and 'undefined'
+
+myComponent.trigger('eventName', {data: 'some data'});
+// logs 'myFunc called' and "{data: 'some data'}"
+
+myComponent.trigger({'type':'eventName'}, {data: 'some data'});
+// logs 'myFunc called' and "{data: 'some data'}"
+```
+
+## Default Component Tree
+
+The default component structure of the Video.js player looks something like this:
+
+```javascript
+Player
+├── MediaLoader (has no DOM element)
+├── PosterImage
+├── TextTrackDisplay
+├── LoadingSpinner
+├── BigPlayButton
+├── LiveTracker (has no DOM element)
+├─┬ ControlBar
+│ ├── PlayToggle
+│ ├── VolumePanel
+│ ├── CurrentTimeDisplay (hidden by default)
+│ ├── TimeDivider (hidden by default)
+│ ├── DurationDisplay (hidden by default)
+│ ├─┬ ProgressControl (hidden during live playback, except when liveui: true)
+│ │ └─┬ SeekBar
+│ │   ├── LoadProgressBar
+│ │   ├── MouseTimeDisplay
+│ │   └── PlayProgressBar
+│ ├── LiveDisplay (hidden during VOD playback)
+│ ├── SeekToLive (hidden during VOD playback)
+│ ├── RemainingTimeDisplay
+│ ├── CustomControlSpacer (has no UI)
+│ ├── PlaybackRateMenuButton (hidden, unless playback tech supports rate changes)
+│ ├── ChaptersButton (hidden, unless there are relevant tracks)
+│ ├── DescriptionsButton (hidden, unless there are relevant tracks)
+│ ├── SubsCapsButton (hidden, unless there are relevant tracks)
+│ ├── AudioTrackButton (hidden, unless there are relevant tracks)
+│ ├── PictureInPictureToggle
+│ └── FullscreenToggle
+├── ErrorDisplay (hidden, until there is an error)
+├── TextTrackSettings
+└── ResizeManager (hidden)
+```
+
+## Specific Component Details
+
+### Play Toggle
+
+The `PlayToggle` has one option `replay` which can show or hide replay icon. This can be set by passing `{replay: false}` as the default behavior replay icon is shown after video end playback.
+
+Example of how to hide a replay icon
+
+```javascript
+let player = videojs('myplayer', {
+  controlBar: {
+    playToggle: {
+      replay: false
+    }
+  }
+});
+```
+
+### Volume Panel
+
+The `VolumePanel` includes the `MuteToggle` and the `VolumeControl` Components, which will be hidden if volume changes are not supported. There is one important option for the `VolumePanel` which can make your `VolumeControl` appear vertically over the `MuteToggle`. This can be set by passing `VolumePanel` `{inline: false}` as the default behavior is a horizontal `VolumeControl` with `{inline: true}`.
+
+Example of a vertical `VolumeControl`
+
+```javascript
+let player = videojs('myplayer', {
+  controlBar: {
+    volumePanel: {
+      inline: false
+    }
+  }
+});
+```
+
+### Text Track Settings
+
+The text track settings component is only available when using emulated text tracks.
+
+### Resize Manager
+
+This new component is in charge of triggering a `playerresize` event when the player size changed.
+It uses the ResizeObserver if available or a polyfill was provided. It has no element when using the ResizeObserver.
+If a ResizeObserver is not available, it will fallback to an iframe element and listen to its resize event via a debounced handler.
+
+A ResizeObserver polyfill can be passed in like so:
+
+```javascript
+var player = videojs('myplayer', {
+  resizeManager: {
+    ResizeObserver: ResizeObserverPoylfill
+  }
+});
+```
+
+To force using the iframe fallback, pass in `null` as the `ResizeObserver`:
+
+```javascript
+var player = videojs('myplayer', {
+  resizeManager: {
+    ResizeObserver: null
+  }
+});
+```
+
+The ResizeManager can also just be disabled like so:
+
+```javascript
+var player = videojs('myplayer', {
+  resizeManager: false
+});
+```

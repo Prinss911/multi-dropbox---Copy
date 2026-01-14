@@ -15,15 +15,15 @@ export default defineEventHandler(async (event) => {
     // Check ownership or Admin role
     let isAdmin = false
 
-    // Verify Admin Role via DB
+    // Verify Admin Role via profiles table
     const supabase = useSupabaseAdmin()
-    const { data: roleData } = await supabase
-        .from('user_roles')
+    const { data: profileData } = await supabase
+        .from('profiles')
         .select('role')
-        .eq('user_id', user.id)
+        .eq('id', user.id)
         .single()
 
-    if (roleData && roleData.role === 'admin') {
+    if (profileData && profileData.role === 'admin') {
         isAdmin = true
     }
 

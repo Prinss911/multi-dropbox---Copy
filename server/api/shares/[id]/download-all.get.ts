@@ -58,7 +58,8 @@ export default defineEventHandler(async (event) => {
             })
         }
 
-        if (new Date(share.expiresAt) < new Date()) {
+        // Check expiration (skip if never expires - null)
+        if (share.expiresAt && new Date(share.expiresAt) < new Date()) {
             throw createError({
                 statusCode: 410,
                 statusMessage: 'This share link has expired'

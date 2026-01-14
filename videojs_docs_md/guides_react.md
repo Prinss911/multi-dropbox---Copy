@@ -1,0 +1,272 @@
+---
+source_url: https://videojs.org/guides/react/
+scraped_at: 2026-01-09
+---
+
+# Documentation Scraped from https://videojs.org/guides/react/
+
+## Video.js Guides
+
+These guides cover a range of topics for users of Video.js
+
+[Back to Guides](/guides)
+
+# React and Video.js
+
+## Table of Contents
+
+* [React Functional Component and useEffect Example](#react-functional-component-and-useeffect-example)
+* [React Class Component Example](#react-class-component-example)
+* [Using a React Component within a Video.js Component](#using-a-react-component-within-a-videojs-component)
+
+These are several React and Video.js player implementations and examples.
+
+Don't forget to include the Video.js CSS, located at `video.js/dist/video-js.css`!
+
+## React Functional Component and `useEffect` Example
+
+```javascript
+import React from 'react';
+import videojs from 'video.js';
+import 'video.js/dist/video-js.css';
+
+export const VideoJS = (props) => {
+  const videoRef = React.useRef(null);
+  const playerRef = React.useRef(null);
+  const {options, onReady} = props;
+
+  React.useEffect(() => {
+
+    // Make sure Video.js player is only initialized once
+    if (!playerRef.current) {
+      // The Video.js player needs to be _inside_ the component el for React 18 Strict Mode. 
+      const videoElement = document.createElement("video-js");
+
+      videoElement.classList.add('vjs-big-play-centered');
+      videoRef.current.appendChild(videoElement);
+
+      const player = playerRef.current = videojs(videoElement, options, () => {
+        videojs.log('player is ready');
+        onReady && onReady(player);
+      });
+
+    // You could update an existing player in the `else` block here
+    // on prop change, for example:
+    } else {
+      const player = playerRef.current;
+
+      player.autoplay(options.autoplay);
+      player.src(options.sources);
+    }
+  }, [options, videoRef]);
+
+  // Dispose the Video.js player when the functional component unmounts
+  React.useEffect(() => {
+    const player = playerRef.current;
+
+    return () => {
+      if (player && !player.isDisposed()) {
+        player.dispose();
+        playerRef.current = null;
+      }
+    };
+  }, [playerRef]);
+
+  return (
+    <div data-vjs-player>
+      <div ref={videoRef} />
+    </div>
+  );
+}
+
+export default VideoJS;
+```
+
+Finally, use the component like this (see [Video.js Options Reference](https://videojs.com/guides/options)):
+
+```javascript
+import React from 'react';
+
+// This imports the functional component from the previous sample.
+import VideoJS from './VideoJS'
+
+const App = () => {
+  const playerRef = React.useRef(null);
+
+  const videoJsOptions = {
+    autoplay: true,
+    controls: true,
+    responsive: true,
+    fluid: true,
+    sources: [{
+      src: '/path/to/video.mp4',
+      type: 'video/mp4'
+    }]
+  };
+
+  const handlePlayerReady = (player) => {
+    playerRef.current = player;
+
+    // You can handle player events here, for example:
+    player.on('waiting', () => {
+      videojs.log('player is waiting');
+    });
+
+    player.on('dispose', () => {
+      videojs.log('player will dispose');
+    });
+  };
+
+  return (
+    <>
+      <div>Rest of app here</div>
+      <VideoJS options={videoJsOptions} onReady={handlePlayerReady} />
+      <div>Rest of app here</div>
+    </>
+  );
+}
+```
+
+## React Class Component Example
+
+This example component instantiates the Video.js player on `componentDidMount` and destroys it on `componentWillUnmount`.
+
+```javascript
+import React from 'react';
+import videojs from 'video.js';
+import 'video.js/dist/video-js.css';
+
+export default class VideoPlayer extends React.Component {
+
+  // Instantiate a Video.js player when the component mounts
+  componentDidMount() {
+    this.player = videojs(this.videoNode, this.props, () => {
+      videojs.log('onPlayerReady', this);
+    });
+  }
+
+  // Dispose the player when the component will unmount
+  componentWillUnmount() {
+    if (this.player) {
+      this.player.dispose();
+    }
+  }
+
+  // Wrap the player in a `div` with a `data-vjs-player` attribute, so Video.js
+  // won't create additional wrapper in the DOM.
+  //
+  // See: https://github.com/videojs/video.js/pull/3856
+  render() {
+    return (
+      <div data-vjs-player>
+        <video ref={node => this.videoNode = node} className="video-js"></video>
+      </div>
+    );
+  }
+}
+```
+
+Finally, use the component like this (see [Video.js Options Reference](https://videojs.com/guides/options)):
+
+```javascript
+const videoJsOptions = {
+  autoplay: true,
+  controls: true,
+  sources: [{
+    src: '/path/to/video.mp4',
+    type: 'video/mp4'
+  }]
+}
+
+return <VideoPlayer {...videoJsOptions} />
+```
+
+## Using a React Component within a Video.js Component
+
+This example demonstrates using a React component within a Video.js component inside a Video.js player. Through this approach, developers can manage their custom Video.js components through React.
+
+First, a normal React component is created:
+
+```javascript
+import {Component} from 'react';
+
+export default class ExampleReactComponent extends Component {
+  render() {
+    return (
+      <div>{this.props.text}</div>
+    );
+  }
+};
+```
+
+Within this component, the `vjsBridgeComponent` is available on its `props`. Through this object, methods of the `vjsBridgeComponent` are available.
+
+The Video.js player can be referenced within this React component via the same means:
+
+```javascript
+const player = this.props.vjsBridgeComponent.player();
+```
+
+Next, a Video.js component is created.
+
+This component renders the React component into itself. Basically, the Video.js component is acting as a bridge between the Video.js player and the React component:
+
+```javascript
+import ExampleReactComponent from './example-react-component';
+import ReactDOM from 'react-dom';
+import videojs from 'video.js';
+
+const VjsComponent = videojs.getComponent('Component');
+
+class ExampleVjsBridgeComponent extends VjsComponent {
+
+  constructor(player, options) {
+    super(player, options);
+
+    // Bind the current class context to the mountReactComponent method
+    this.mountReactComponent = this.mountReactComponent.bind(this);
+
+    // When player is ready, call method to mount the React component
+    player.ready(() => this.mountReactComponent());
+
+    // Remove the React root when this component is destroyed
+    this.on('dispose', () => ReactDOM.unmountComponentAtNode(this.el()));
+  }
+
+  // This method renders the ExampleReactComponent into the DOM element of
+  // the Video.js component, `this.el()`.
+  mountReactComponent() {
+    ReactDOM.render(
+      <ExampleReactComponent vjsBridgeComponent={this} text='Example React Component' />,
+      this.el()
+    );
+  }
+}
+
+// Make sure to register the Video.js component so Video.js knows it exists
+videojs.registerComponent('exampleVjsBridgeComponent', ExampleVjsBridgeComponent);
+
+export default ExampleVjsBridgeComponent;
+```
+
+Finally, the Video.js bridge component can be added to the player like so:
+
+```javascript
+// ...
+
+  // Instantiate a Video.js player when the component mounts
+  componentDidMount() {
+    this.player = videojs(this.videoNode, this.props, () => {
+      videojs.log('onPlayerReady', this);
+    });
+
+    // Add the ExampleVjsBridgeComponent as a child of the player (or
+    // of another component within the player, such as the control bar).
+    //
+    // You can pass options to your bridge component using the second argument
+    // to this method.
+    this.player.addChild('exampleVjsBridgeComponent', {});
+  }
+
+// ...
+```

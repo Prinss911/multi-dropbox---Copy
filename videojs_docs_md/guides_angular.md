@@ -1,0 +1,75 @@
+---
+source_url: https://videojs.org/guides/angular/
+scraped_at: 2026-01-09
+---
+
+# Documentation Scraped from https://videojs.org/guides/angular/
+
+## Video.js Guides
+
+These guides cover a range of topics for users of Video.js
+
+[Back to Guides](/guides)
+
+# Angular and Video.js
+
+This is a basic Angular and Video.js player implementation. This example component instantiates the player on `OnInit` and destroys it on `OnDestroy`:
+
+```javascript
+import {Component, ElementRef, Input, OnDestroy, OnInit, ViewChild, ViewEncapsulation} from '@angular/core';
+import videojs from 'video.js';
+
+@Component({
+  selector: 'app-vjs-player',
+  template: `
+    <video #target class="video-js" controls muted playsinline preload="none"></video>
+  `,
+  styleUrls: [
+    './vjs-player.component.css'
+  ],
+  encapsulation: ViewEncapsulation.None,
+})
+
+export class VjsPlayerComponent implements OnInit, OnDestroy {
+  @ViewChild('target', {static: true}) target: ElementRef;
+
+  // See options: https://videojs.com/guides/options
+  @Input() options: {
+      fluid: boolean,
+      aspectRatio: string,
+      autoplay: boolean,
+      sources: {
+          src: string,
+          type: string,
+      }[],
+  };
+
+  player: videojs.Player;
+
+  constructor(
+    private elementRef: ElementRef,
+  ) {}
+
+  // Instantiate a Video.js player OnInit
+  ngOnInit() {
+    this.player = videojs(this.target.nativeElement, this.options, function onPlayerReady() {
+      console.log('onPlayerReady', this);
+    });
+  }
+
+  // Dispose the player OnDestroy
+  ngOnDestroy() {
+    if (this.player) {
+      this.player.dispose();
+    }
+  }
+}
+```
+
+Finally, use the component like this (see [Video.js Options Reference](https://videojs.com/guides/options)):
+
+```javascript
+<app-vjs-player [options]="{autoplay: true, controls: true, sources: [{ src: '/path/to/video.mp4', type: 'video/mp4' }]}"></app-vjs-player>
+```
+
+Don't forget to include the Video.js CSS, located at `video.js/dist/video-js.css`!

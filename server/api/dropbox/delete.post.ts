@@ -24,6 +24,22 @@ export default defineEventHandler(async (event) => {
             path: path
         })
 
+        // Cleanup 'files' table
+        try {
+            // Cleanup 'files' table
+            // We use the serverSupabaseClient (auto-imported) to respect RLS
+            const supabase = await serverSupabaseClient(event)
+            const targetAccountId = accountId || (await getActiveClient()).account.id
+
+            await supabase
+                .from('files')
+                .delete()
+                .eq('dropbox_path', path)
+                .eq('dropbox_account_id', targetAccountId)
+        } catch (dbError) {
+            console.warn('Failed to clean up files table:', dbError)
+        }
+
         return {
             success: true,
             metadata: response.result.metadata

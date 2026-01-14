@@ -9,37 +9,49 @@ export default defineNuxtRouteMiddleware(async (to, from) => {
 
     const { user, isAdmin, fetchRole, role } = useAuth()
 
-    console.log('[Middleware] Checking route:', to.path, 'User:', user.value?.email)
+    console.log('[Middleware] Route:', to.path, '| User:', user.value?.email || 'none', '| Role:', role.value)
 
-    // Public routes (Login, Invite Confirm, Anonymous Upload)
-    const publicRoutes = ['/login', '/auth/confirm', '/upload', '/access-denied']
+    // Public routes (Login, Invite Confirm, Anonymous Upload, Public Downloads)
+    const publicRoutes = ['/login', '/auth/confirm', '/upload', '/drive/upload', '/access-denied', '/download', '/file']
     const isPublic = publicRoutes.some(path => to.path.startsWith(path))
 
+    // No user and not public route - redirect to login
     if (!user.value && !isPublic) {
-        console.log('[Middleware] No user, redirecting to login')
+        console.log('[Middleware] No user, not public route -> /login')
         return navigateTo('/login')
     }
 
-    // If user is logged in and trying to access login page, redirect to home/files
+    // If user is logged in and trying to access login page, redirect to drive
     if (user.value && to.path === '/login') {
-        console.log('[Middleware] Already logged in, redirecting to files')
-        return navigateTo('/files')
+        console.log('[Middleware] Logged in user on /login -> /drive')
+        return navigateTo('/drive')
     }
 
-    // Admin routes
-    const adminRoutes = ['/users', '/admin', '/files']
-    if (adminRoutes.some(path => to.path.startsWith(path))) {
-        if (!user.value) return navigateTo('/login')
+    // Admin-only routes (all pages under /admin/)
+    const adminRoutes = ['/admin']
+    const isAdminRoute = adminRoutes.some(path => to.path.startsWith(path))
 
-        // Ensure role is loaded - fetchRole returns the role directly now
-        console.log('[Middleware] Admin route detected, fetching role...')
-        const fetchedRole = await fetchRole()
+    if (isAdminRoute) {
+        if (!user.value) {
+            console.log('[Middleware] Admin route, no user -> /login')
+            return navigateTo('/login')
+        }
 
-        console.log('[Middleware] Role check. Fetched:', fetchedRole, 'Computed isAdmin:', isAdmin.value, 'State Role:', role.value)
+        // Fetch role if not already loaded
+        if (!role.value) {
+            console.log('[Middleware] Fetching role for admin check...')
+            await fetchRole()
+        }
 
-        if (!isAdmin.value && role.value !== 'admin' && fetchedRole !== 'admin') {
-            console.log('[Middleware] Access denied for user:', user.value.email)
+        console.log('[Middleware] Admin route check. Role:', role.value, 'isAdmin:', isAdmin.value)
+
+        if (role.value !== 'admin') {
+            console.log('[Middleware] Not admin, access denied for:', to.path)
             return navigateTo('/access-denied')
         }
     }
+
+    // All other authenticated routes are accessible by any logged-in user
+    console.log('[Middleware] Access granted to:', to.path)
 })
+

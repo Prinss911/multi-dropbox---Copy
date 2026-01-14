@@ -31,7 +31,7 @@
 
 <script setup lang="ts">
 definePageMeta({
-  layout: false
+  layout: 'empty'
 })
 
 const router = useRouter()
