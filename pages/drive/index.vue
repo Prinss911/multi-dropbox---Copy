@@ -183,13 +183,16 @@
                              </div>
                           </td>
                           <td class="px-6 py-3 text-sm text-muted-foreground hidden sm:table-cell">
-                              <div class="flex items-center gap-2">
-                                <div 
-                                    class="w-2 h-2 rounded-full shrink-0"
-                                    :style="{ backgroundColor: getAccountColor(share.accountId, share.accountName) }"
-                                ></div>
-                                <span class="text-sm text-[#1E1919] dark:text-foreground">{{ share.accountName }}</span>
-                              </div>
+                              <span 
+                                  class="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-medium whitespace-nowrap"
+                                  :style="{ 
+                                    backgroundColor: getAccountColor(share.accountId, share.accountName) + '15', 
+                                    color: getAccountColor(share.accountId, share.accountName)
+                                  }"
+                              >
+                                  <span class="w-1.5 h-1.5 rounded-full shrink-0" :style="{ backgroundColor: getAccountColor(share.accountId, share.accountName) }"></span>
+                                  <span class="truncate max-w-[120px]">{{ share.accountName }}</span>
+                              </span>
                           </td>
                           <td class="px-6 py-3 text-sm text-muted-foreground hidden md:table-cell">
                              {{ formatDate(share.createdAt) }}

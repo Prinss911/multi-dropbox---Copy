@@ -172,14 +172,19 @@
     <div class="flex-1 flex flex-col min-w-0">
         <header class="h-14 border-b bg-background/95 backdrop-blur flex items-center justify-between px-6 sticky top-0 z-10">
            <div class="flex items-center gap-4">
-              <div>
-                <h1 class="font-semibold text-lg leading-none">
-                  {{ isAdmin ? 'File Explorer' : 'My Files' }}
-                </h1>
-                <p v-if="isAdmin && activeAccount" class="text-xs text-muted-foreground mt-1.5 flex items-center gap-1.5">
-                  <span class="w-1.5 h-1.5 rounded-full bg-emerald-500 shadow-[0_0_6px_rgba(16,185,129,0.4)]"></span>
-                  {{ activeAccount.name }}
-                </p>
+              <h1 class="font-semibold text-xl tracking-tight text-[#1E1919] dark:text-foreground">
+                {{ isAdmin ? 'File Explorer' : 'My Files' }}
+              </h1>
+              
+              <!-- Active Account Badge (Admin Only) -->
+              <div v-if="isAdmin && activeAccount" class="hidden md:flex items-center h-7 px-3 rounded-full bg-emerald-50 text-emerald-700 dark:bg-emerald-500/10 dark:text-emerald-400 border border-emerald-200/50 dark:border-emerald-500/20 text-xs font-medium shadow-sm">
+                 <span class="relative flex h-2 w-2 mr-2">
+                   <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+                   <span class="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
+                 </span>
+                 <span class="truncate max-w-[150px]">{{ activeAccount.name }}</span>
+                 <span class="mx-1.5 opacity-30">|</span>
+                 <span class="opacity-70">Active</span>
               </div>
            </div>
            <div class="flex items-center gap-2">
