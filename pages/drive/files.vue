@@ -1,5 +1,31 @@
 <template>
-  <div class="h-full flex flex-col bg-background/50">
+  <div 
+    class="h-full flex flex-col bg-background/50"
+    @dragover.prevent="isDragging = true"
+    @dragleave.prevent="isDragging = false"
+    @drop.prevent="handleDrop"
+  >
+    <!-- Hidden File Input -->
+    <input 
+      ref="fileInput"
+      type="file" 
+      multiple 
+      class="hidden" 
+      @change="handleFileSelect"
+    />
+    
+    <!-- Drop Overlay -->
+    <div 
+      v-if="isDragging"
+      class="fixed inset-0 z-50 bg-blue-500/10 backdrop-blur-sm flex items-center justify-center pointer-events-none"
+    >
+      <div class="bg-white dark:bg-card rounded-2xl p-12 shadow-2xl border-2 border-dashed border-blue-500 text-center">
+        <Icon name="lucide:upload-cloud" class="h-16 w-16 mx-auto mb-4 text-blue-500" />
+        <p class="text-xl font-semibold text-foreground">Drop files to upload</p>
+        <p class="text-sm text-muted-foreground mt-2">Files will be uploaded to your storage</p>
+      </div>
+    </div>
+
     <!-- Top Stats & Controls Bar (Clean & Integrated) -->
     <div class="sticky top-0 z-20 bg-background/95 backdrop-blur border-b px-6 py-4">
       <div class="w-full">
@@ -44,12 +70,13 @@
                 <Icon :name="viewMode === 'list' ? 'lucide:layout-grid' : 'lucide:align-justify'" class="h-5 w-5" />
              </button>
 
-             <NuxtLink to="/drive/upload">
-               <button class="h-10 px-5 rounded-full bg-[#0061FE] hover:bg-[#0057E5] text-white font-medium text-sm shadow-sm transition-all hover:shadow-md flex items-center gap-2 active:scale-95">
-                 <Icon name="lucide:upload" class="h-4 w-4" />
-                 <span>Upload</span>
-               </button>
-             </NuxtLink>
+             <button 
+               @click="triggerFileInput"
+               class="h-10 px-5 rounded-full bg-[#0061FE] hover:bg-[#0057E5] text-white font-medium text-sm shadow-sm transition-all hover:shadow-md flex items-center gap-2 active:scale-95"
+             >
+               <Icon name="lucide:upload" class="h-4 w-4" />
+               <span>Upload</span>
+             </button>
           </div>
         </div>
       </div>
@@ -72,8 +99,12 @@
            <p class="text-sm opacity-80 mt-1">{{ error.message }}</p>
         </div>
 
-        <!-- Empty State -->
-        <div v-else-if="sortedFiles.length === 0" class="h-full flex flex-col items-center justify-center p-12 text-center animate-in fade-in zoom-in-95 duration-500">
+        <!-- Empty State with Dropzone -->
+        <div 
+          v-else-if="sortedFiles.length === 0" 
+          class="h-full flex flex-col items-center justify-center p-12 text-center animate-in fade-in zoom-in-95 duration-500 cursor-pointer"
+          @click="triggerFileInput"
+        >
           <div class="h-32 w-32 mb-6 opacity-30">
              <!-- Abstract Empty Illustration -->
              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1" class="w-full h-full text-blue-300">
@@ -81,15 +112,16 @@
                 <polyline points="13 2 13 9 20 9"></polyline>
              </svg>
           </div>
-          <h3 class="text-xl font-semibold text-[#1E1919] mb-2">{{ searchQuery ? 'No results found' : 'Your folder is empty' }}</h3>
+          <h3 class="text-xl font-semibold text-[#1E1919] dark:text-foreground mb-2">{{ searchQuery ? 'No results found' : 'Your folder is empty' }}</h3>
           <p class="text-muted-foreground max-w-xs mb-8">
-            {{ searchQuery ? 'Try adjusting your search terms.' : 'Drag and drop files here to upload, or use the upload button.' }}
+            {{ searchQuery ? 'Try adjusting your search terms.' : 'Drag and drop files here to upload, or click to browse.' }}
           </p>
-          <NuxtLink v-if="!searchQuery" to="/drive/upload">
-            <button class="h-11 px-8 rounded-full bg-blue-50 text-[#0061FE] hover:bg-blue-100 font-medium transition-colors">
-              Import Files
-            </button>
-          </NuxtLink>
+          <button 
+            v-if="!searchQuery" 
+            class="h-11 px-8 rounded-full bg-blue-50 text-[#0061FE] hover:bg-blue-100 font-medium transition-colors"
+          >
+            Choose Files
+          </button>
         </div>
 
         <!-- List View (Dropbox Style) -->
@@ -544,6 +576,42 @@
         </div>
       </div>
     </Teleport>
+    
+    <!-- Upload Progress Modal -->
+    <Teleport to="body">
+      <div 
+        v-if="isUploading" 
+        class="fixed inset-0 z-[80] flex items-center justify-center p-4 bg-[#1E1919]/60 backdrop-blur-[2px]"
+      >
+        <div class="bg-card w-full max-w-md rounded-xl shadow-2xl border-0 overflow-hidden p-6">
+           <div class="flex items-center gap-4 mb-6">
+              <div class="h-12 w-12 rounded-full bg-blue-50 flex items-center justify-center text-blue-600 shrink-0">
+                 <Icon name="lucide:upload-cloud" class="h-6 w-6" />
+              </div>
+              <div class="min-w-0 flex-1">
+                 <h3 class="text-lg font-semibold text-foreground">Uploading Files</h3>
+                 <p class="text-sm text-muted-foreground truncate">{{ uploadingFileName || 'Preparing...' }}</p>
+              </div>
+           </div>
+           
+           <!-- Progress Bar -->
+           <div class="mb-4">
+              <div class="h-2 bg-muted rounded-full overflow-hidden">
+                 <div 
+                    class="h-full bg-gradient-to-r from-blue-500 to-blue-600 transition-all duration-300"
+                    :style="{ width: `${uploadProgress}%` }"
+                 ></div>
+              </div>
+              <div class="flex justify-between mt-2 text-xs text-muted-foreground">
+                 <span>{{ uploadedCount }} of {{ totalUploadCount }} files</span>
+                 <span>{{ uploadProgress.toFixed(0) }}%</span>
+              </div>
+           </div>
+           
+           <p v-if="uploadError" class="text-sm text-red-500 mt-2">{{ uploadError }}</p>
+        </div>
+      </div>
+    </Teleport>
   </div>
 </template>
 
@@ -570,6 +638,454 @@ const sortBy = ref('modified')
 const viewMode = ref<'list' | 'grid'>('list')
 const currentPage = ref(1)
 const pageSize = 50
+
+// Upload state
+const isDragging = ref(false)
+const isUploading = ref(false)
+const uploadProgress = ref(0)
+const uploadingFileName = ref('')
+const uploadedCount = ref(0)
+const totalUploadCount = ref(0)
+const uploadError = ref('')
+
+// File input ref
+const fileInput = ref<HTMLInputElement | null>(null)
+
+// Wake lock to prevent browser from throttling when minimized
+let wakeLock: WakeLockSentinel | null = null
+
+// Request wake lock to keep upload active
+const requestWakeLock = async () => {
+  try {
+    if ('wakeLock' in navigator) {
+      wakeLock = await (navigator as any).wakeLock.request('screen')
+      console.log('Wake lock acquired for upload')
+    }
+  } catch (err) {
+    console.warn('Wake lock not available:', err)
+  }
+}
+
+// Release wake lock
+const releaseWakeLock = () => {
+  if (wakeLock) {
+    wakeLock.release()
+    wakeLock = null
+    console.log('Wake lock released')
+  }
+}
+
+// Prevent page unload during upload
+const handleBeforeUnload = (e: BeforeUnloadEvent) => {
+  if (isUploading.value) {
+    e.preventDefault()
+    e.returnValue = 'Upload in progress. Are you sure you want to leave?'
+    return e.returnValue
+  }
+}
+
+// Handle visibility change - re-acquire wake lock if needed
+const handleVisibilityChange = async () => {
+  if (document.visibilityState === 'visible' && isUploading.value && !wakeLock) {
+    await requestWakeLock()
+  }
+}
+
+// Network status tracking
+const isOnline = ref(navigator.onLine)
+
+const handleOnline = () => {
+  isOnline.value = true
+  console.log('Network is back online')
+}
+
+const handleOffline = () => {
+  isOnline.value = false
+  console.log('Network went offline')
+}
+
+// Wait for network to be online (with timeout)
+const waitForOnline = (timeoutMs: number = 30000): Promise<boolean> => {
+  return new Promise((resolve) => {
+    if (navigator.onLine) {
+      resolve(true)
+      return
+    }
+    
+    const timeout = setTimeout(() => {
+      window.removeEventListener('online', onOnline)
+      resolve(false)
+    }, timeoutMs)
+    
+    const onOnline = () => {
+      clearTimeout(timeout)
+      window.removeEventListener('online', onOnline)
+      resolve(true)
+    }
+    
+    window.addEventListener('online', onOnline)
+  })
+}
+
+// Setup and cleanup event listeners
+onMounted(() => {
+  window.addEventListener('beforeunload', handleBeforeUnload)
+  document.addEventListener('visibilitychange', handleVisibilityChange)
+  window.addEventListener('online', handleOnline)
+  window.addEventListener('offline', handleOffline)
+})
+
+onUnmounted(() => {
+  window.removeEventListener('beforeunload', handleBeforeUnload)
+  document.removeEventListener('visibilitychange', handleVisibilityChange)
+  window.removeEventListener('online', handleOnline)
+  window.removeEventListener('offline', handleOffline)
+  releaseWakeLock()
+})
+
+// Handle file drop
+const handleDrop = (e: DragEvent) => {
+  isDragging.value = false
+  const droppedFiles = e.dataTransfer?.files
+  if (droppedFiles && droppedFiles.length > 0) {
+    processUpload(Array.from(droppedFiles))
+  }
+}
+
+// Handle file select from input
+const handleFileSelect = (e: Event) => {
+  const target = e.target as HTMLInputElement
+  if (target.files && target.files.length > 0) {
+    processUpload(Array.from(target.files))
+    target.value = '' // Reset input
+  }
+}
+
+// Trigger file input click
+const triggerFileInput = () => {
+  fileInput.value?.click()
+}
+
+// Upload configuration
+const CHUNK_SIZE = 8 * 1024 * 1024 // 8MB chunks for large files
+const LARGE_FILE_THRESHOLD = 150 * 1024 * 1024 // 150MB
+const MAX_RETRIES = 3
+
+// Retry wrapper with exponential backoff
+// Retry wrapper with exponential backoff and network aware
+const withRetry = async <T>(
+  fn: () => Promise<T>,
+  maxRetries: number = MAX_RETRIES,
+  delayMs: number = 1000
+): Promise<T> => {
+  let lastError: Error | null = null
+  
+  for (let attempt = 0; attempt < maxRetries; attempt++) {
+    try {
+      // Check online status before attempt
+      if (!isOnline.value) {
+        console.log('Network offline, waiting for connection...')
+        const backOnline = await waitForOnline()
+        if (!backOnline) throw new Error('Network offline timeout')
+        console.log('Network online, resuming...')
+      }
+      
+      return await fn()
+    } catch (err: any) {
+      lastError = err
+      console.warn(`Attempt ${attempt + 1}/${maxRetries} failed:`, err.message)
+      
+      // If network went offline during request, wait for it to come back
+      if (!navigator.onLine) {
+        console.log('Network connection lost, waiting for recovery...')
+        await waitForOnline()
+      }
+      
+      if (attempt < maxRetries - 1) {
+        await new Promise(r => setTimeout(r, delayMs * Math.pow(2, attempt)))
+      }
+    }
+  }
+  throw lastError
+}
+
+// Simple upload for small files (< 150MB)
+const uploadSmallFile = async (
+  file: File,
+  accessToken: string,
+  uploadPath: string,
+  onProgress: (percent: number) => void
+): Promise<{ path_display: string }> => {
+  return new Promise((resolve, reject) => {
+    const xhr = new XMLHttpRequest()
+    xhr.open('POST', 'https://content.dropboxapi.com/2/files/upload')
+    xhr.setRequestHeader('Authorization', `Bearer ${accessToken}`)
+    xhr.setRequestHeader('Dropbox-API-Arg', JSON.stringify({
+      path: uploadPath,
+      mode: 'add',
+      autorename: true,
+      mute: false
+    }))
+    xhr.setRequestHeader('Content-Type', 'application/octet-stream')
+    
+    xhr.upload.onprogress = (e) => {
+      if (e.lengthComputable) {
+        onProgress((e.loaded / e.total) * 100)
+      }
+    }
+    
+    xhr.onload = () => {
+      if (xhr.status >= 200 && xhr.status < 300) {
+        try {
+          resolve(JSON.parse(xhr.responseText))
+        } catch {
+          resolve({ path_display: uploadPath })
+        }
+      } else {
+        reject(new Error(`Upload failed: ${xhr.status} ${xhr.statusText}`))
+      }
+    }
+    
+    xhr.onerror = () => reject(new Error('Network error during upload'))
+    xhr.ontimeout = () => reject(new Error('Upload timed out'))
+    xhr.timeout = 300000 // 5 minute timeout
+    xhr.send(file)
+  })
+}
+
+// Chunked upload for large files (> 150MB)
+const uploadLargeFile = async (
+  file: File,
+  accessToken: string,
+  uploadPath: string,
+  onProgress: (percent: number) => void
+): Promise<{ path_display: string }> => {
+  const totalChunks = Math.ceil(file.size / CHUNK_SIZE)
+  let sessionId = ''
+  let offset = 0
+  
+  // Start upload session
+  const startChunk = file.slice(0, Math.min(CHUNK_SIZE, file.size))
+  const startResponse = await fetch('https://content.dropboxapi.com/2/files/upload_session/start', {
+    method: 'POST',
+    headers: {
+      'Authorization': `Bearer ${accessToken}`,
+      'Dropbox-API-Arg': JSON.stringify({ close: false }),
+      'Content-Type': 'application/octet-stream'
+    },
+    body: startChunk
+  })
+  
+  if (!startResponse.ok) {
+    throw new Error(`Failed to start upload session: ${startResponse.status}`)
+  }
+  
+  const startData = await startResponse.json()
+  sessionId = startData.session_id
+  offset = startChunk.size
+  onProgress((offset / file.size) * 100)
+  
+  // Append chunks
+  while (offset < file.size - CHUNK_SIZE) {
+    const chunk = file.slice(offset, offset + CHUNK_SIZE)
+    
+    const appendResponse = await fetch('https://content.dropboxapi.com/2/files/upload_session/append_v2', {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${accessToken}`,
+        'Dropbox-API-Arg': JSON.stringify({
+          cursor: { session_id: sessionId, offset },
+          close: false
+        }),
+        'Content-Type': 'application/octet-stream'
+      },
+      body: chunk
+    })
+    
+    if (!appendResponse.ok) {
+      throw new Error(`Failed to append chunk: ${appendResponse.status}`)
+    }
+    
+    offset += chunk.size
+    onProgress((offset / file.size) * 100)
+  }
+  
+  // Finish upload session
+  const finalChunk = file.slice(offset)
+  const finishResponse = await fetch('https://content.dropboxapi.com/2/files/upload_session/finish', {
+    method: 'POST',
+    headers: {
+      'Authorization': `Bearer ${accessToken}`,
+      'Dropbox-API-Arg': JSON.stringify({
+        cursor: { session_id: sessionId, offset },
+        commit: {
+          path: uploadPath,
+          mode: 'add',
+          autorename: true,
+          mute: false
+        }
+      }),
+      'Content-Type': 'application/octet-stream'
+    },
+    body: finalChunk
+  })
+  
+  if (!finishResponse.ok) {
+    throw new Error(`Failed to finish upload: ${finishResponse.status}`)
+  }
+  
+  const result = await finishResponse.json()
+  onProgress(100)
+  return result
+}
+
+// Process upload (no limits for authenticated users)
+const processUpload = async (filesToUpload: File[]) => {
+  if (filesToUpload.length === 0) return
+  
+  // Acquire wake lock to prevent browser throttling
+  await requestWakeLock()
+  
+  isUploading.value = true
+  uploadProgress.value = 0
+  uploadedCount.value = 0
+  totalUploadCount.value = filesToUpload.length
+  uploadError.value = ''
+  
+  const failedFiles: string[] = []
+  
+  try {
+    // Get allocation for files
+    const { data: { session } } = await supabase.auth.getSession()
+    const headers: Record<string, string> = {}
+    if (session?.access_token) {
+      headers['Authorization'] = `Bearer ${session.access_token}`
+    }
+    
+    const allocation = await withRetry(() => $fetch<{
+      success: boolean
+      allocations: { index: number; accountId: string; accountName: string; accessToken: string }[]
+    }>('/api/upload/allocate', {
+      method: 'POST',
+      headers,
+      body: {
+        files: filesToUpload.map((f, i) => ({ index: i, name: f.name, size: f.size }))
+      }
+    }))
+    
+    if (!allocation.success || allocation.allocations.length === 0) {
+      throw new Error('Failed to allocate storage for upload')
+    }
+    
+    // Concurrency control
+    const CONCURRENCY_LIMIT = 5
+    const queue = allocation.allocations.map(alloc => ({
+      file: filesToUpload[alloc.index],
+      alloc
+    })).filter(item => item.alloc != undefined)
+    
+    // Track overall progress with throttling
+    const fileProgressMap = new Map<number, number>()
+    let lastUpdate = 0
+    let updateFrame: number | null = null
+    
+    const updateOverallProgress = (index: number, percent: number) => {
+      fileProgressMap.set(index, percent)
+      
+      const now = Date.now()
+      if (now - lastUpdate > 100) { // Limit updates to every 100ms
+        lastUpdate = now
+        if (updateFrame) cancelAnimationFrame(updateFrame)
+        
+        updateFrame = requestAnimationFrame(() => {
+          const totalPercent = Array.from(fileProgressMap.values()).reduce((a, b) => a + b, 0)
+          uploadProgress.value = (totalPercent / filesToUpload.length)
+        })
+      }
+    }
+
+    // Process single file
+    const processSingleFile = async (item: { file: File, alloc: any }) => {
+      const { file, alloc } = item
+      const index = filesToUpload.indexOf(file)
+      
+      try {
+        uploadingFileName.value = file.name // Note: This will change rapidly in parallel mode
+        const uploadPath = `/uploads/${sanitizeFilename(file.name)}`
+        
+        // Choose upload method
+        const uploadFn = file.size > LARGE_FILE_THRESHOLD ? uploadLargeFile : uploadSmallFile
+        
+        // Upload with retry
+        const dropboxResult = await withRetry(() => 
+          uploadFn(file, alloc.accessToken, uploadPath, (percent) => {
+            updateOverallProgress(index, percent)
+          })
+        )
+        
+        // Record to DB
+        try {
+          await withRetry(() => $fetch('/api/dropbox/record-upload', {
+            method: 'POST',
+            headers,
+            body: {
+              filename: file.name,
+              dropboxPath: dropboxResult.path_display || uploadPath,
+              size: file.size,
+              contentType: file.type || 'application/octet-stream',
+              dropboxAccountId: alloc.accountId
+            }
+          }))
+        } catch (recordErr) {
+          console.error('Failed to record upload:', recordErr)
+        }
+        
+        uploadedCount.value++
+      } catch (err: any) {
+        console.error(`Failed to upload ${file.name}:`, err)
+        failedFiles.push(file.name)
+      }
+    }
+
+    // Run with concurrency limit
+    const activePromises: Promise<void>[] = []
+    
+    for (const item of queue) {
+      const p = processSingleFile(item).then(() => {
+        activePromises.splice(activePromises.indexOf(p), 1)
+      })
+      activePromises.push(p)
+      
+      if (activePromises.length >= CONCURRENCY_LIMIT) {
+        await Promise.race(activePromises)
+      }
+    }
+    
+    // Wait for remaining
+    await Promise.all(activePromises)
+    
+    // Show partial success message if some files failed
+    if (failedFiles.length > 0) {
+      uploadError.value = `${failedFiles.length} file(s) failed: ${failedFiles.slice(0, 3).join(', ')}${failedFiles.length > 3 ? '...' : ''}`
+    }
+    
+    // Refresh file list
+    await refresh()
+    
+  } catch (err: any) {
+    console.error('Upload error:', err)
+    uploadError.value = err.message || 'Upload failed'
+  } finally {
+    isUploading.value = false
+    // Release wake lock
+    releaseWakeLock()
+  }
+}
+
+// Sanitize filename
+const sanitizeFilename = (name: string): string => {
+  return name.replace(/[<>:"/\\|?*]/g, '_')
+}
 
 // Fetch user's files with auth header
 const { data, pending, error, refresh } = await useFetch<FileEntry[]>('/api/my-files', {

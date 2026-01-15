@@ -1,8 +1,7 @@
 <template>
   <div class="h-full flex flex-col bg-background/50">
-    <!-- Redirect non-admin users -->
-    <!-- Redirect non-admin users (Disabled for debugging/access fix) -->
-    <div v-if="false" class="h-full flex items-center justify-center">
+    <!-- Redirect non-admin users to their files page -->
+    <div v-if="!isAdmin" class="h-full flex items-center justify-center">
       <div class="flex flex-col items-center gap-3">
          <Icon name="lucide:loader-2" class="animate-spin h-8 w-8 text-[#0061FE]" />
          <p class="text-sm text-muted-foreground">Redirecting...</p>
@@ -259,16 +258,12 @@ const { isAdmin, role } = useAuth()
 const isCheckingRole = computed(() => role.value === null)
 
 // Redirect non-admin users to files page (only on client side)
-// Redirect non-admin users to files page (only on client side)
-// Disabled to prevent redirect loop/issues for Admin
 onMounted(() => {
-  /*
   watch(role, async (newRole) => {
     if (newRole !== null && newRole !== 'admin') {
       await navigateTo('/drive/files', { replace: true })
     }
   }, { immediate: true })
-  */
 })
 
 interface DashboardData {

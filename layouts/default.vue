@@ -176,16 +176,11 @@
                 {{ isAdmin ? 'File Explorer' : 'My Files' }}
               </h1>
               
-              <!-- Active Account Badge (Admin Only) -->
-              <div v-if="isAdmin && activeAccount" class="hidden md:flex items-center h-7 px-3 rounded-full bg-emerald-50 text-emerald-700 dark:bg-emerald-500/10 dark:text-emerald-400 border border-emerald-200/50 dark:border-emerald-500/20 text-xs font-medium shadow-sm">
-                 <span class="relative flex h-2 w-2 mr-2">
-                   <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
-                   <span class="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
-                 </span>
-                 <span class="truncate max-w-[150px]">{{ activeAccount.name }}</span>
-                 <span class="mx-1.5 opacity-30">|</span>
-                 <span class="opacity-70">Active</span>
-              </div>
+              <!-- Connected Accounts Badge (Admin Only) -->
+              <NuxtLink v-if="isAdmin && accounts.length > 0" to="/admin/accounts" class="hidden md:flex items-center h-7 px-3 rounded-full bg-blue-50 text-blue-700 dark:bg-blue-500/10 dark:text-blue-400 border border-blue-200/50 dark:border-blue-500/20 text-xs font-medium shadow-sm hover:bg-blue-100 dark:hover:bg-blue-500/20 transition-colors">
+                 <Icon name="lucide:hard-drive" class="h-3 w-3 mr-1.5" />
+                 <span>{{ accounts.length }} Account{{ accounts.length > 1 ? 's' : '' }}</span>
+              </NuxtLink>
            </div>
            <div class="flex items-center gap-2">
                <div class="relative hidden sm:block">

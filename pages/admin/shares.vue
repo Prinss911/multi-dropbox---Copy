@@ -6,7 +6,26 @@
         <div class="flex flex-col md:flex-row md:items-center justify-between gap-4">
            <div>
              <h1 class="text-xl font-semibold text-[#1E1919] dark:text-foreground">Shared Links</h1>
-             <p class="text-sm text-muted-foreground">{{ total }} active links across all accounts</p>
+             <p class="text-sm text-muted-foreground">
+               {{ selectedIds.size > 0 ? `${selectedIds.size} selected` : `${total} active links across all accounts` }}
+             </p>
+           </div>
+           
+           <!-- Bulk Actions (when items selected) -->
+           <div v-if="selectedIds.size > 0" class="flex items-center gap-2">
+              <button 
+                @click="clearSelection"
+                class="h-9 px-3 rounded-lg border bg-background hover:bg-muted text-sm font-medium transition-colors"
+              >
+                Clear
+              </button>
+              <button 
+                @click="showBulkDeleteModal = true"
+                class="h-9 px-4 rounded-lg bg-red-600 hover:bg-red-700 text-white text-sm font-medium transition-colors flex items-center gap-2"
+              >
+                <Icon name="lucide:trash-2" class="h-4 w-4" />
+                Delete {{ selectedIds.size }}
+              </button>
            </div>
            <!-- Rest of header content -->
            <!-- ... -->
@@ -105,16 +124,33 @@
            <table class="w-full text-left border-collapse">
             <thead class="sticky top-0 bg-background/95 backdrop-blur z-10">
               <tr>
-                <th class="py-3 px-4 text-xs font-semibold text-muted-foreground uppercase tracking-wider border-b w-[40%]">File Info</th>
+                <th class="py-3 px-2 border-b w-10">
+                   <input 
+                     type="checkbox"
+                     :checked="isAllSelected"
+                     :indeterminate="isPartiallySelected"
+                     @change="toggleSelectAll"
+                     class="h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500 cursor-pointer"
+                   />
+                </th>
+                <th class="py-3 px-4 text-xs font-semibold text-muted-foreground uppercase tracking-wider border-b w-[35%]">File Info</th>
                 <th class="py-3 px-4 text-xs font-semibold text-muted-foreground uppercase tracking-wider border-b w-32 hidden sm:table-cell">Account</th>
                 <th class="py-3 px-4 text-xs font-semibold text-muted-foreground uppercase tracking-wider border-b hidden md:table-cell">Created</th>
                 <th class="py-3 px-4 text-xs font-semibold text-muted-foreground uppercase tracking-wider border-b">Status / Expires</th>
                 <th class="py-3 px-4 text-xs font-semibold text-muted-foreground uppercase tracking-wider border-b w-24 hidden lg:table-cell">Downloads</th>
-                <th class="py-3 px-4 text-right text-xs font-semibold text-muted-foreground uppercase tracking-wider border-b w-32">Actions</th>
+                <th class="py-3 px-4 text-right text-xs font-semibold text-muted-foreground uppercase tracking-wider border-b w-28">Actions</th>
               </tr>
             </thead>
             <tbody class="divide-y divide-border/40">
-              <tr v-for="share in paginatedShares" :key="share.id" class="group hover:bg-[#F7F9FA] dark:hover:bg-muted/20 transition-colors">
+              <tr v-for="share in paginatedShares" :key="share.id" class="group hover:bg-[#F7F9FA] dark:hover:bg-muted/20 transition-colors" :class="{ 'bg-blue-50 dark:bg-blue-500/10': selectedIds.has(share.id) }">
+                <td class="py-3 px-2">
+                   <input 
+                     type="checkbox"
+                     :checked="selectedIds.has(share.id)"
+                     @change="toggleSelect(share.id)"
+                     class="h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500 cursor-pointer"
+                   />
+                </td>
                 <td class="py-3 px-4">
                   <div class="flex items-center gap-4">
                     <div class="relative shrink-0">
@@ -253,6 +289,47 @@
         </div>
       </div>
     </Teleport>
+    
+    <!-- Bulk Delete Confirmation Modal -->
+    <Teleport to="body">
+      <div 
+        v-if="showBulkDeleteModal" 
+        class="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-[#1E1919]/60 backdrop-blur-[2px]"
+        @click.self="showBulkDeleteModal = false"
+      >
+        <div class="bg-card w-full max-w-[400px] rounded-xl shadow-2xl border-0 overflow-hidden animate-in fade-in zoom-in-95 duration-200 p-6">
+           <div class="flex flex-col items-center text-center gap-4">
+              <div class="h-12 w-12 rounded-full bg-red-50 flex items-center justify-center text-red-600 mb-2">
+                 <Icon name="lucide:trash-2" class="h-6 w-6" />
+              </div>
+              <div>
+                 <h3 class="text-lg font-semibold text-[#1E1919] dark:text-foreground">Delete {{ selectedIds.size }} Share Links?</h3>
+                 <p class="text-sm text-muted-foreground mt-2 px-4">
+                    This will permanently remove all selected share links. The original files will not be deleted.
+                 </p>
+                 <p class="text-xs text-red-500/80 mt-2 font-medium">This action cannot be undone.</p>
+              </div>
+              
+              <div class="flex gap-3 w-full mt-2">
+                 <button 
+                    @click="showBulkDeleteModal = false"
+                    class="flex-1 h-10 rounded-lg border hover:bg-muted transition-colors text-sm font-medium"
+                 >
+                    Cancel
+                 </button>
+                 <button 
+                    @click="handleBulkDelete"
+                    :disabled="isBulkDeleting"
+                    class="flex-1 h-10 rounded-lg bg-red-600 hover:bg-red-700 text-white transition-colors text-sm font-medium flex items-center justify-center gap-2 disabled:opacity-70"
+                 >
+                    <Icon v-if="isBulkDeleting" name="lucide:loader-2" class="h-4 w-4 animate-spin" />
+                    {{ isBulkDeleting ? 'Deleting...' : 'Delete All' }}
+                 </button>
+              </div>
+           </div>
+        </div>
+      </div>
+    </Teleport>
   </div>
 </template>
 
@@ -288,6 +365,49 @@ const pageSize = 30
 const copiedId = ref<string | null>(null)
 const deleteTarget = ref<ShareLink | null>(null)
 const isDeleting = ref(false)
+
+// Bulk selection state
+const selectedIds = ref<Set<string>>(new Set())
+const showBulkDeleteModal = ref(false)
+const isBulkDeleting = ref(false)
+
+// Selection helpers
+const isAllSelected = computed(() => {
+  return paginatedShares.value.length > 0 && paginatedShares.value.every(s => selectedIds.value.has(s.id))
+})
+
+const isPartiallySelected = computed(() => {
+  const selectedCount = paginatedShares.value.filter(s => selectedIds.value.has(s.id)).length
+  return selectedCount > 0 && selectedCount < paginatedShares.value.length
+})
+
+const toggleSelect = (id: string) => {
+  const newSet = new Set(selectedIds.value)
+  if (newSet.has(id)) {
+    newSet.delete(id)
+  } else {
+    newSet.add(id)
+  }
+  selectedIds.value = newSet
+}
+
+const toggleSelectAll = () => {
+  if (isAllSelected.value) {
+    // Deselect all on current page
+    const newSet = new Set(selectedIds.value)
+    paginatedShares.value.forEach(s => newSet.delete(s.id))
+    selectedIds.value = newSet
+  } else {
+    // Select all on current page
+    const newSet = new Set(selectedIds.value)
+    paginatedShares.value.forEach(s => newSet.add(s.id))
+    selectedIds.value = newSet
+  }
+}
+
+const clearSelection = () => {
+  selectedIds.value = new Set()
+}
 
 // Fetch shares
 const { data, pending, error, refresh } = await useFetch<SharesResponse>('/api/admin/shares', {
@@ -468,6 +588,42 @@ const handleDelete = async () => {
     alert('Failed to delete: ' + (err.message || 'Unknown error'))
   } finally {
     isDeleting.value = false
+  }
+}
+
+const handleBulkDelete = async () => {
+  if (selectedIds.value.size === 0) return
+  
+  isBulkDeleting.value = true
+  try {
+    const { data: { session } } = await supabase.auth.getSession()
+    const headers = session?.access_token ? {
+      'Authorization': `Bearer ${session.access_token}`
+    } : {}
+
+    // Delete all selected shares in parallel (with limit to avoid overwhelming)
+    const idsToDelete = Array.from(selectedIds.value)
+    const batchSize = 10
+    
+    for (let i = 0; i < idsToDelete.length; i += batchSize) {
+      const batch = idsToDelete.slice(i, i + batchSize)
+      await Promise.all(
+        batch.map(id => 
+          $fetch(`/api/shares/${id}`, { method: 'DELETE', headers }).catch(err => {
+            console.error(`Failed to delete ${id}:`, err)
+          })
+        )
+      )
+    }
+
+    // Clear selection and refresh
+    selectedIds.value = new Set()
+    showBulkDeleteModal.value = false
+    await refresh()
+  } catch (err: any) {
+    alert('Bulk delete failed: ' + (err.message || 'Unknown error'))
+  } finally {
+    isBulkDeleting.value = false
   }
 }
 </script>

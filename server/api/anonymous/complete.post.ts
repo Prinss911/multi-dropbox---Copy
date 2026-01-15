@@ -44,6 +44,7 @@ interface FileInfo {
     name: string
     path: string
     size: number
+    accountId?: string  // For multi-account uploads
 }
 
 export default defineEventHandler(async (event) => {
@@ -118,7 +119,7 @@ export default defineEventHandler(async (event) => {
                 path: f.path,
                 size: f.size
             }))
-            displayName = `${shareFiles.length} files`
+            displayName = shareFiles.length === 1 ? shareFiles[0].name : `${shareFiles.length} files`
             primaryPath = folderPath || shareFiles[0]?.path || ''
         } else {
             // Single file: convert to array format for consistency

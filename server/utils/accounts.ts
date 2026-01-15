@@ -57,39 +57,96 @@ export async function getAccounts(): Promise<DropboxAccount[]> {
     return data || []
 }
 
-// Get active account
+// Get active account (legacy - now uses smart selection)
 export async function getActiveAccount(): Promise<DropboxAccount | null> {
-    const supabase = getSupabase()
+    // Delegate to smart selection
+    return getBestAccount()
+}
 
-    console.log('[getActiveAccount] Fetching active account from database...')
+// Smart account selection - picks account with most available storage
+export async function getBestAccount(requiredSpace: number = 0): Promise<DropboxAccount | null> {
+    const accounts = await getAccounts()
 
-    let { data, error } = await supabase
-        .from('dropbox_accounts')
-        .select('*')
-        .eq('is_active', true)
-        .order('created_at', { ascending: true })
-        .limit(1)
-        .maybeSingle()
-
-    if (error || !data) {
-        console.log('[getActiveAccount] No active account found, falling back to first account')
-        const result = await supabase
-            .from('dropbox_accounts')
-            .select('*')
-            .order('created_at', { ascending: true })
-            .limit(1)
-            .single()
-
-        data = result.data
+    if (accounts.length === 0) {
+        console.log('[getBestAccount] No accounts found!')
+        return null
     }
 
-    if (data) {
-        console.log(`[getActiveAccount] Returning account: ${data.name} (${data.id}), is_active: ${data.is_active}`)
-    } else {
-        console.log('[getActiveAccount] No accounts found!')
+    if (accounts.length === 1) {
+        console.log(`[getBestAccount] Only one account available: ${accounts[0].name}`)
+        return accounts[0]
     }
 
-    return data || null
+    console.log(`[getBestAccount] Checking storage for ${accounts.length} accounts...`)
+
+    // Get storage info for all accounts in parallel
+    const accountsWithStorage = await Promise.all(accounts.map(async (account) => {
+        try {
+            const { createDropboxClient } = await import('./dropbox')
+            const accessToken = await getAccessTokenForAccount(account)
+            const dbx = createDropboxClient(accessToken)
+            const space = await dbx.usersGetSpaceUsage()
+
+            let allocated = 0
+            if (space.result.allocation['.tag'] === 'individual') {
+                allocated = (space.result.allocation as any).allocated || 0
+            } else if (space.result.allocation['.tag'] === 'team') {
+                allocated = (space.result.allocation as any).allocated || 0
+            }
+
+            const available = allocated - space.result.used
+            console.log(`[getBestAccount] ${account.name}: ${Math.round(available / 1024 / 1024 / 1024 * 100) / 100} GB available`)
+
+            return {
+                account,
+                available
+            }
+        } catch (err) {
+            console.error(`[getBestAccount] Error checking storage for ${account.name}:`, err)
+            return { account, available: 0 }
+        }
+    }))
+
+    // Filter accounts with enough space
+    const validAccounts = accountsWithStorage.filter(a => a.available >= requiredSpace)
+
+    if (validAccounts.length === 0) {
+        console.log('[getBestAccount] No account has enough space, returning first account')
+        return accounts[0]
+    }
+
+    // Sort by available space (descending) and pick the best
+    validAccounts.sort((a, b) => b.available - a.available)
+    const best = validAccounts[0]
+
+    console.log(`[getBestAccount] Selected: ${best.account.name} (${Math.round(best.available / 1024 / 1024 / 1024 * 100) / 100} GB available)`)
+
+    return best.account
+}
+
+// Helper to get access token for an account
+async function getAccessTokenForAccount(account: DropboxAccount): Promise<string> {
+    if (!account.refresh_token || !account.app_key || !account.app_secret) {
+        throw new Error(`Missing credentials for account ${account.name}`)
+    }
+
+    const response = await $fetch<{
+        access_token: string
+        expires_in: number
+    }>('https://api.dropbox.com/oauth2/token', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/x-www-form-urlencoded',
+        },
+        body: new URLSearchParams({
+            grant_type: 'refresh_token',
+            refresh_token: account.refresh_token,
+            client_id: account.app_key,
+            client_secret: account.app_secret,
+        }).toString(),
+    })
+
+    return response.access_token
 }
 
 // Get account by ID

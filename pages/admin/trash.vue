@@ -8,22 +8,61 @@
         </div>
         <div>
           <h1 class="text-xl font-semibold">Trash</h1>
-          <p class="text-sm text-muted-foreground">Deleted files are automatically removed after 30 days</p>
+          <p class="text-sm text-muted-foreground">
+            {{ selectedIds.size > 0 ? `${selectedIds.size} selected` : 'Deleted files are automatically removed after 30 days' }}
+          </p>
         </div>
       </div>
-      <UiButton 
-        v-if="files.length > 0"
-        variant="destructive" 
-        size="sm"
-        @click="emptyTrash"
-        :disabled="isEmptyingTrash"
-      >
-        <Icon 
-          :name="isEmptyingTrash ? 'lucide:loader-2' : 'lucide:trash'" 
-          :class="['mr-2 h-4 w-4', isEmptyingTrash && 'animate-spin']"
-        />
-        Empty Trash
-      </UiButton>
+      
+      <!-- Bulk Actions -->
+      <div class="flex items-center gap-2">
+        <template v-if="selectedIds.size > 0">
+          <UiButton 
+            variant="outline" 
+            size="sm"
+            @click="clearSelection"
+          >
+            Clear
+          </UiButton>
+          <UiButton 
+            variant="outline" 
+            size="sm"
+            @click="bulkRestore"
+            :disabled="isBulkProcessing"
+          >
+            <Icon 
+              :name="isBulkProcessing ? 'lucide:loader-2' : 'lucide:undo-2'" 
+              :class="['mr-2 h-4 w-4', isBulkProcessing && 'animate-spin']"
+            />
+            Restore {{ selectedIds.size }}
+          </UiButton>
+          <UiButton 
+            variant="destructive" 
+            size="sm"
+            @click="bulkDelete"
+            :disabled="isBulkProcessing"
+          >
+            <Icon 
+              :name="isBulkProcessing ? 'lucide:loader-2' : 'lucide:trash-2'" 
+              :class="['mr-2 h-4 w-4', isBulkProcessing && 'animate-spin']"
+            />
+            Delete {{ selectedIds.size }}
+          </UiButton>
+        </template>
+        <UiButton 
+          v-else-if="files.length > 0"
+          variant="destructive" 
+          size="sm"
+          @click="emptyTrash"
+          :disabled="isEmptyingTrash"
+        >
+          <Icon 
+            :name="isEmptyingTrash ? 'lucide:loader-2' : 'lucide:trash'" 
+            :class="['mr-2 h-4 w-4', isEmptyingTrash && 'animate-spin']"
+          />
+          Empty Trash
+        </UiButton>
+      </div>
     </div>
 
     <!-- Loading State -->
@@ -61,6 +100,15 @@
       <UiTable>
         <UiTableHeader>
           <UiTableRow class="hover:bg-transparent">
+            <UiTableHead class="w-10">
+              <input 
+                type="checkbox"
+                :checked="isAllSelected"
+                :indeterminate="isPartiallySelected"
+                @change="toggleSelectAll"
+                class="h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500 cursor-pointer"
+              />
+            </UiTableHead>
             <UiTableHead class="min-w-[200px]">Name</UiTableHead>
             <UiTableHead class="hidden md:table-cell">Account</UiTableHead>
             <UiTableHead class="hidden md:table-cell">Location</UiTableHead>
@@ -73,7 +121,16 @@
             v-for="entry in files" 
             :key="entry.id"
             class="group"
+            :class="{ 'bg-blue-50 dark:bg-blue-500/10': selectedIds.has(entry.id) }"
           >
+            <UiTableCell class="py-3">
+              <input 
+                type="checkbox"
+                :checked="selectedIds.has(entry.id)"
+                @change="toggleSelect(entry.id)"
+                class="h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500 cursor-pointer"
+              />
+            </UiTableCell>
             <UiTableCell class="font-medium flex items-center gap-3 py-3">
               <div class="p-2 rounded bg-muted shrink-0">
                 <Icon :name="getFileIcon(entry as any)" class="h-4 w-4 text-muted-foreground" />
@@ -211,6 +268,42 @@ const error = ref<string | null>(null)
 const isRestoring = ref<string | null>(null)
 const isDeleting = ref<string | null>(null)
 const isEmptyingTrash = ref(false)
+
+// Bulk selection state
+const selectedIds = ref<Set<string>>(new Set())
+const isBulkProcessing = ref(false)
+
+// Selection helpers
+const isAllSelected = computed(() => {
+  return files.value.length > 0 && files.value.every(f => selectedIds.value.has(f.id))
+})
+
+const isPartiallySelected = computed(() => {
+  const selectedCount = files.value.filter(f => selectedIds.value.has(f.id)).length
+  return selectedCount > 0 && selectedCount < files.value.length
+})
+
+const toggleSelect = (id: string) => {
+  const newSet = new Set(selectedIds.value)
+  if (newSet.has(id)) {
+    newSet.delete(id)
+  } else {
+    newSet.add(id)
+  }
+  selectedIds.value = newSet
+}
+
+const toggleSelectAll = () => {
+  if (isAllSelected.value) {
+    selectedIds.value = new Set()
+  } else {
+    selectedIds.value = new Set(files.value.map(f => f.id))
+  }
+}
+
+const clearSelection = () => {
+  selectedIds.value = new Set()
+}
 
 // Confirm Dialog
 const confirmDialog = reactive({
@@ -371,6 +464,80 @@ const emptyTrash = async () => {
   // Show info message
   if (personalAccountWarning && successCount > 0) {
     alert(`${successCount} file(s) processed. Note: For personal Dropbox accounts, files in trash will be automatically deleted after 30 days.`)
+  }
+}
+
+// Bulk operations
+const bulkRestore = async () => {
+  if (selectedIds.value.size === 0) return
+  
+  const confirmed = await showConfirm({
+    title: 'Restore Selected',
+    message: `Restore ${selectedIds.value.size} selected file(s)?`,
+    confirmText: 'Restore All'
+  })
+  if (!confirmed) return
+  
+  isBulkProcessing.value = true
+  const idsToProcess = Array.from(selectedIds.value)
+  
+  for (const id of idsToProcess) {
+    const file = files.value.find(f => f.id === id)
+    if (file?.path) {
+      try {
+        await $fetch('/api/dropbox/restore', {
+          method: 'POST',
+          body: { path: file.path, accountId: file.accountId }
+        })
+        files.value = files.value.filter(f => f.id !== id)
+      } catch (err) {
+        console.error(`Failed to restore ${file.name}:`, err)
+      }
+    }
+  }
+  
+  selectedIds.value = new Set()
+  isBulkProcessing.value = false
+}
+
+const bulkDelete = async () => {
+  if (selectedIds.value.size === 0) return
+  
+  const confirmed = await showConfirm({
+    title: 'Permanently Delete Selected',
+    message: `Permanently delete ${selectedIds.value.size} selected file(s)? This cannot be undone.`,
+    confirmText: 'Delete All Forever'
+  })
+  if (!confirmed) return
+  
+  isBulkProcessing.value = true
+  const idsToProcess = Array.from(selectedIds.value)
+  let personalAccountWarning = false
+  
+  for (const id of idsToProcess) {
+    const file = files.value.find(f => f.id === id)
+    if (file?.path) {
+      try {
+        const response = await $fetch<{ success: boolean; isPersonalAccount?: boolean; alreadyInTrash?: boolean }>('/api/dropbox/permanent-delete', {
+          method: 'POST',
+          body: { path: file.path, accountId: file.accountId }
+        })
+        files.value = files.value.filter(f => f.id !== id)
+        
+        if (response.isPersonalAccount || response.alreadyInTrash) {
+          personalAccountWarning = true
+        }
+      } catch (err) {
+        console.error(`Failed to delete ${file.name}:`, err)
+      }
+    }
+  }
+  
+  selectedIds.value = new Set()
+  isBulkProcessing.value = false
+  
+  if (personalAccountWarning) {
+    alert('Note: For personal Dropbox accounts, files in trash will be automatically deleted after 30 days.')
   }
 }
 </script>

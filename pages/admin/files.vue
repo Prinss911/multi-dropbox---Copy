@@ -6,7 +6,26 @@
         <div class="flex flex-col md:flex-row md:items-center justify-between gap-4">
            <div>
              <h1 class="text-xl font-semibold text-[#1E1919] dark:text-foreground">All Files</h1>
-             <p class="text-sm text-muted-foreground">{{ totalFiles }} files across {{ totalAccounts }} accounts</p>
+             <p class="text-sm text-muted-foreground">
+               {{ selectedIds.size > 0 ? `${selectedIds.size} selected` : `${totalFiles} files across ${totalAccounts} accounts` }}
+             </p>
+           </div>
+           
+           <!-- Bulk Actions -->
+           <div v-if="selectedIds.size > 0" class="flex items-center gap-2">
+              <button 
+                @click="clearSelection"
+                class="h-9 px-3 rounded-lg border bg-background hover:bg-muted text-sm font-medium transition-colors"
+              >
+                Clear
+              </button>
+              <button 
+                @click="showBulkDeleteModal = true"
+                class="h-9 px-4 rounded-lg bg-red-600 hover:bg-red-700 text-white text-sm font-medium transition-colors flex items-center gap-2"
+              >
+                <Icon name="lucide:trash-2" class="h-4 w-4" />
+                Delete {{ selectedIds.size }}
+              </button>
            </div>
            <!-- ... toolbar code preserved ... -->
            <div class="flex flex-wrap items-center gap-3">
@@ -102,7 +121,16 @@
            <table class="w-full text-left border-collapse">
               <thead class="sticky top-0 bg-background/95 backdrop-blur z-10">
                  <tr>
-                    <th class="py-3 px-4 text-xs font-semibold text-muted-foreground uppercase tracking-wider border-b w-[40%]">File Name</th>
+                    <th class="py-3 px-2 border-b w-10">
+                       <input 
+                         type="checkbox"
+                         :checked="isAllSelected"
+                         :indeterminate="isPartiallySelected"
+                         @change="toggleSelectAll"
+                         class="h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500 cursor-pointer"
+                       />
+                    </th>
+                    <th class="py-3 px-4 text-xs font-semibold text-muted-foreground uppercase tracking-wider border-b w-[35%]">File Name</th>
                     <th class="py-3 px-4 text-xs font-semibold text-muted-foreground uppercase tracking-wider border-b w-32 hidden sm:table-cell">Account</th>
                     <th class="py-3 px-4 text-xs font-semibold text-muted-foreground uppercase tracking-wider border-b hidden md:table-cell">Location</th>
                     <th class="py-3 px-4 text-xs font-semibold text-muted-foreground uppercase tracking-wider border-b w-24 hidden lg:table-cell">Size</th>
@@ -115,7 +143,16 @@
                     v-for="file in paginatedFiles" 
                     :key="file.id" 
                     class="group hover:bg-[#F7F9FA] dark:hover:bg-muted/20 transition-colors"
+                    :class="{ 'bg-blue-50 dark:bg-blue-500/10': selectedIds.has(file.id) }"
                  >
+                    <td class="py-3 px-2">
+                       <input 
+                         type="checkbox"
+                         :checked="selectedIds.has(file.id)"
+                         @change="toggleSelect(file.id)"
+                         class="h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500 cursor-pointer"
+                       />
+                    </td>
                     <td class="py-3 px-4">
                        <div class="flex items-center gap-4">
                           <!-- Minimalist Icon -->
@@ -465,6 +502,46 @@
         </div>
       </div>
     </Teleport>
+    
+    <!-- Bulk Delete Modal -->
+    <Teleport to="body">
+      <div 
+        v-if="showBulkDeleteModal" 
+        class="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-[#1E1919]/60 backdrop-blur-[2px]"
+        @click.self="showBulkDeleteModal = false"
+      >
+        <div class="bg-card w-full max-w-[400px] rounded-xl shadow-2xl border-0 overflow-hidden animate-in fade-in zoom-in-95 duration-200 p-6">
+           <div class="flex flex-col items-center text-center gap-4">
+              <div class="h-12 w-12 rounded-full bg-red-50 flex items-center justify-center text-red-600 mb-2">
+                 <Icon name="lucide:trash-2" class="h-6 w-6" />
+              </div>
+              <div>
+                 <h3 class="text-lg font-semibold text-[#1E1919] dark:text-foreground">Delete {{ selectedIds.size }} Files?</h3>
+                 <p class="text-sm text-muted-foreground mt-2 px-4">
+                    This will move selected files to Trash. You can restore them within 30 days.
+                 </p>
+              </div>
+              
+              <div class="flex gap-3 w-full mt-2">
+                 <button 
+                    @click="showBulkDeleteModal = false"
+                    class="flex-1 h-10 rounded-lg border hover:bg-muted transition-colors text-sm font-medium"
+                 >
+                    Cancel
+                 </button>
+                 <button 
+                    @click="handleBulkDelete"
+                    :disabled="isBulkDeleting"
+                    class="flex-1 h-10 rounded-lg bg-red-600 hover:bg-red-700 text-white transition-colors text-sm font-medium flex items-center justify-center gap-2 disabled:opacity-70"
+                 >
+                    <Icon v-if="isBulkDeleting" name="lucide:loader-2" class="h-4 w-4 animate-spin" />
+                    {{ isBulkDeleting ? 'Deleting...' : 'Move to Trash' }}
+                 </button>
+              </div>
+           </div>
+        </div>
+      </div>
+    </Teleport>
   </div>
 </template>
 
@@ -503,6 +580,47 @@ const files = computed(() => data.value?.files || [])
 const accounts = computed(() => data.value?.accounts || [])
 const totalFiles = computed(() => data.value?.totalFiles || 0)
 const totalAccounts = computed(() => data.value?.totalAccounts || 0)
+
+// Bulk selection state
+const selectedIds = ref<Set<string>>(new Set())
+const showBulkDeleteModal = ref(false)
+const isBulkDeleting = ref(false)
+
+// Selection helpers
+const isAllSelected = computed(() => {
+  return paginatedFiles.value.length > 0 && paginatedFiles.value.every(f => selectedIds.value.has(f.id))
+})
+
+const isPartiallySelected = computed(() => {
+  const selectedCount = paginatedFiles.value.filter(f => selectedIds.value.has(f.id)).length
+  return selectedCount > 0 && selectedCount < paginatedFiles.value.length
+})
+
+const toggleSelect = (id: string) => {
+  const newSet = new Set(selectedIds.value)
+  if (newSet.has(id)) {
+    newSet.delete(id)
+  } else {
+    newSet.add(id)
+  }
+  selectedIds.value = newSet
+}
+
+const toggleSelectAll = () => {
+  if (isAllSelected.value) {
+    const newSet = new Set(selectedIds.value)
+    paginatedFiles.value.forEach(f => newSet.delete(f.id))
+    selectedIds.value = newSet
+  } else {
+    const newSet = new Set(selectedIds.value)
+    paginatedFiles.value.forEach(f => newSet.add(f.id))
+    selectedIds.value = newSet
+  }
+}
+
+const clearSelection = () => {
+  selectedIds.value = new Set()
+}
 
 // Filter and sort
 const sortedFiles = computed(() => {
@@ -804,5 +922,39 @@ const isVideoFile = (ext: string | null): boolean => {
 const isAudioFile = (ext: string | null): boolean => {
   if (!ext) return false
   return ['mp3', 'wav', 'flac', 'aac', 'ogg', 'm4a', 'wma'].includes(ext.toLowerCase())
+}
+
+// Bulk delete handler
+const handleBulkDelete = async () => {
+  if (selectedIds.value.size === 0) return
+  
+  isBulkDeleting.value = true
+  const idsToDelete = Array.from(selectedIds.value)
+  let successCount = 0
+  
+  for (const id of idsToDelete) {
+    const file = files.value.find(f => f.id === id)
+    if (file) {
+      try {
+        await $fetch('/api/dropbox/delete', {
+          method: 'POST',
+          body: { path: file.path, accountId: file.accountId }
+        })
+        successCount++
+      } catch (err) {
+        console.error(`Failed to delete ${file.name}:`, err)
+      }
+    }
+  }
+  
+  // Clear selection and close modal
+  selectedIds.value = new Set()
+  showBulkDeleteModal.value = false
+  isBulkDeleting.value = false
+  
+  if (successCount > 0) {
+    // Refresh file list
+    await refresh()
+  }
 }
 </script>

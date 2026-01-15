@@ -5,6 +5,7 @@ export interface ShareFile {
     name: string
     path: string
     size: number
+    accountId?: string   // For multi-account batch uploads
 }
 
 export interface ShareLink {
