@@ -172,6 +172,13 @@
                           >
                              <Icon name="lucide:share-2" class="h-4 w-4" />
                           </button>
+                          <button 
+                             @click="confirmDelete(file)"
+                             title="Delete"
+                             class="h-8 w-8 flex items-center justify-center rounded hover:bg-red-50 hover:text-red-600 hover:shadow-sm transition-all text-muted-foreground"
+                          >
+                             <Icon name="lucide:trash-2" class="h-4 w-4" />
+                          </button>
                        </div>
                     </td>
                  </tr>
@@ -300,6 +307,56 @@
                >
                   <Icon v-if="isSharing" name="lucide:loader-2" class="h-5 w-5 animate-spin" />
                   <span v-else>Generate Link</span>
+               </button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </Teleport>
+
+    <!-- Delete Confirmation Modal -->
+    <Teleport to="body">
+      <div 
+        v-if="deleteTarget" 
+        class="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-[#1E1919]/60 backdrop-blur-[2px]"
+        @click.self="deleteTarget = null"
+      >
+        <div class="bg-card w-full max-w-[400px] rounded-xl shadow-2xl border-0 overflow-hidden animate-in fade-in zoom-in-95 duration-200">
+          <div class="px-6 py-5 border-b bg-background flex items-center gap-3">
+             <div class="p-2 rounded-full bg-red-100">
+                <Icon name="lucide:trash-2" class="h-5 w-5 text-red-600" />
+             </div>
+             <h3 class="font-semibold text-lg text-[#1E1919] dark:text-foreground">Delete File</h3>
+          </div>
+          <div class="p-6">
+            <p class="text-muted-foreground mb-2">
+              Are you sure you want to delete this file?
+            </p>
+            <div class="flex items-center gap-3 p-3 bg-muted/30 rounded-lg mb-4">
+               <Icon :name="getFileIcon(deleteTarget.extension)" class="h-8 w-8" :class="getIconColor(deleteTarget.extension)" />
+               <div class="min-w-0">
+                  <p class="font-medium text-sm truncate">{{ deleteTarget.name }}</p>
+                  <p class="text-xs text-muted-foreground">{{ formatBytes(deleteTarget.size) }} • {{ deleteTarget.accountName }}</p>
+               </div>
+            </div>
+            <p class="text-xs text-muted-foreground mb-6">
+              The file will be moved to trash and automatically deleted after 30 days.
+            </p>
+            <div class="flex gap-3 justify-end">
+               <button 
+                  @click="deleteTarget = null"
+                  class="px-4 py-2 rounded-lg text-sm font-medium border border-input bg-background hover:bg-muted transition-colors"
+               >
+                  Cancel
+               </button>
+               <button 
+                  @click="handleDelete"
+                  :disabled="isDeleting"
+                  class="px-4 py-2 rounded-lg text-sm font-medium bg-red-600 text-white hover:bg-red-700 transition-colors flex items-center gap-2 disabled:opacity-50"
+               >
+                  <Icon v-if="isDeleting" name="lucide:loader-2" class="h-4 w-4 animate-spin" />
+                  <Icon v-else name="lucide:trash-2" class="h-4 w-4" />
+                  Delete
                </button>
             </div>
           </div>
@@ -559,5 +616,39 @@ const accountColors = ['#0061FE', '#0070E0', '#007EE5', '#248CF2', '#4D9BF7', '#
 const getAccountColor = (accountId: string): string => {
   const index = accounts.value.findIndex(a => a.id === accountId)
   return accountColors[index % accountColors.length]
+}
+
+// Delete Modal State
+const deleteTarget = ref<FileEntry | null>(null)
+const isDeleting = ref(false)
+
+// Confirm delete
+const confirmDelete = (file: FileEntry) => {
+  deleteTarget.value = file
+}
+
+// Handle delete
+const handleDelete = async () => {
+  if (!deleteTarget.value) return
+
+  isDeleting.value = true
+  try {
+    await $fetch('/api/dropbox/delete', {
+      method: 'POST',
+      body: {
+        path: deleteTarget.value.path,
+        accountId: deleteTarget.value.accountId
+      }
+    })
+
+    // Refresh file list
+    await refresh()
+    deleteTarget.value = null
+  } catch (err: any) {
+    console.error('Delete failed:', err)
+    alert('Failed to delete file: ' + (err.data?.message || err.message || 'Unknown error'))
+  } finally {
+    isDeleting.value = false
+  }
 }
 </script>

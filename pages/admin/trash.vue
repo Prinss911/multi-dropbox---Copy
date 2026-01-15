@@ -11,6 +11,19 @@
           <p class="text-sm text-muted-foreground">Deleted files are automatically removed after 30 days</p>
         </div>
       </div>
+      <UiButton 
+        v-if="files.length > 0"
+        variant="destructive" 
+        size="sm"
+        @click="emptyTrash"
+        :disabled="isEmptyingTrash"
+      >
+        <Icon 
+          :name="isEmptyingTrash ? 'lucide:loader-2' : 'lucide:trash'" 
+          :class="['mr-2 h-4 w-4', isEmptyingTrash && 'animate-spin']"
+        />
+        Empty Trash
+      </UiButton>
     </div>
 
     <!-- Loading State -->
@@ -109,18 +122,32 @@
               <span v-else class="text-xs text-muted-foreground">Unknown</span>
             </UiTableCell>
             <UiTableCell class="text-right">
-              <UiButton 
-                variant="outline" 
-                size="sm"
-                @click="restoreFile(entry)"
-                :disabled="isRestoring === entry.id"
-              >
-                <Icon 
-                  :name="isRestoring === entry.id ? 'lucide:loader-2' : 'lucide:undo-2'" 
-                  :class="['mr-2 h-4 w-4', isRestoring === entry.id && 'animate-spin']"
-                />
-                Restore
-              </UiButton>
+              <div class="flex items-center justify-end gap-2">
+                <UiButton 
+                  variant="outline" 
+                  size="sm"
+                  @click="restoreFile(entry)"
+                  :disabled="isRestoring === entry.id"
+                >
+                  <Icon 
+                    :name="isRestoring === entry.id ? 'lucide:loader-2' : 'lucide:undo-2'" 
+                    :class="['mr-2 h-4 w-4', isRestoring === entry.id && 'animate-spin']"
+                  />
+                  Restore
+                </UiButton>
+                <UiButton 
+                  variant="destructive" 
+                  size="sm"
+                  @click="deleteForever(entry)"
+                  :disabled="isDeleting === entry.id"
+                >
+                  <Icon 
+                    :name="isDeleting === entry.id ? 'lucide:loader-2' : 'lucide:trash-2'" 
+                    :class="['mr-2 h-4 w-4', isDeleting === entry.id && 'animate-spin']"
+                  />
+                  Delete
+                </UiButton>
+              </div>
             </UiTableCell>
           </UiTableRow>
         </UiTableBody>
@@ -182,6 +209,8 @@ const files = ref<TrashFile[]>([])
 const isLoading = ref(true)
 const error = ref<string | null>(null)
 const isRestoring = ref<string | null>(null)
+const isDeleting = ref<string | null>(null)
+const isEmptyingTrash = ref(false)
 
 // Confirm Dialog
 const confirmDialog = reactive({
@@ -280,6 +309,7 @@ const deleteForever = async (entry: TrashFile) => {
   })
   if (!confirmed) return
   
+  isDeleting.value = entry.id
   try {
     await $fetch('/api/dropbox/permanent-delete', {
       method: 'POST',
@@ -288,6 +318,10 @@ const deleteForever = async (entry: TrashFile) => {
     files.value = files.value.filter(f => f.id !== entry.id)
   } catch (err: any) {
     console.error('Permanent delete error:', err)
+    const message = err.data?.message || err.message || 'Failed to permanently delete'
+    alert(message)
+  } finally {
+    isDeleting.value = null
   }
 }
 
@@ -299,20 +333,26 @@ const emptyTrash = async () => {
   })
   if (!confirmed) return
   
+  isEmptyingTrash.value = true
+  
   // Delete all files one by one
-  for (const file of files.value) {
+  const filesToDelete = [...files.value]
+  for (const file of filesToDelete) {
     if (file.path) {
       try {
         await $fetch('/api/dropbox/permanent-delete', {
           method: 'POST',
           body: { path: file.path, accountId: file.accountId }
         })
-      } catch (err) {
-        console.error('Error deleting:', file.name)
+        // Remove from list as we go
+        files.value = files.value.filter(f => f.id !== file.id)
+      } catch (err: any) {
+        console.error('Error deleting:', file.name, err)
+        // Continue with next file even if one fails
       }
     }
   }
   
-  files.value = []
+  isEmptyingTrash.value = false
 }
 </script>
