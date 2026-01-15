@@ -56,8 +56,8 @@ export default defineEventHandler(async (event) => {
             path: file.dropbox_path,
             size: file.size,
             modified: file.uploaded_at,
-            type: 'file',
-            extension: file.filename.split('.').pop()?.toLowerCase() || null,
+            type: file.content_type === 'application/x-directory' ? 'folder' : 'file',
+            extension: file.content_type === 'application/x-directory' ? null : (file.filename.split('.').pop()?.toLowerCase() || null),
             accountId: file.dropbox_account_id,
             // Include share link if exists
             shareId: shareId || null,

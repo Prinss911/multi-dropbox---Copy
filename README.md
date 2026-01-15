@@ -1,40 +1,68 @@
 # MultiBox - Multi-Dropbox Manager
 
-Aplikasi web modern untuk mengelola multiple akun Dropbox dengan fitur file sharing dan smart storage management.
+Aplikasi web modern untuk mengelola multiple akun Dropbox dengan fitur file sharing, smart storage management, dan user authentication.
 
 ## ✨ Features
 
-### File Management
+### 🔐 Authentication & User Management
+- ✅ Supabase Auth dengan email/password
+- ✅ Role-based access (Admin & User)
+- ✅ Admin dashboard dengan user invitation
+- ✅ Session management & auto-refresh
+- ✅ Protected routes dengan middleware
+
+### 📁 File Management
 - ✅ Browse files & folders dengan navigasi breadcrumb
 - ✅ Upload files dengan drag & drop
-- ✅ Download files
-- ✅ Create, rename, delete folders
-- ✅ Bulk operations (select, delete, move, download)
-- ✅ File type icons dengan warna
+- ✅ Download files (single & bulk)
+- ✅ Create folders dengan virtual folder system
+- ✅ File preview (image, video, audio, PDF)
+- ✅ File type icons dengan colored containers
+- ✅ Robust upload dengan retry & resume
+- ✅ Wake lock untuk mencegah sleep saat upload besar
 
-### Multi-File Batch Upload
+### ✨ Bulk Operations
+- ✅ Select multiple files dengan checkbox
+- ✅ Select All / Deselect All
+- ✅ **Floating Bulk Action Bar** - UI modern untuk bulk actions
+- ✅ Bulk Delete - Hapus banyak file sekaligus
+- ✅ Bulk Download - Download banyak file sekaligus
+- ✅ Bulk Copy Links (untuk shares)
+- ✅ Visual feedback saat file terseleksi
+
+### 📤 Multi-File Batch Upload
 - ✅ Upload multiple files sekaligus
 - ✅ Parallel upload (max 5 concurrent)
-- ✅ Per-file progress tracking
+- ✅ Per-file progress tracking dengan status icons
 - ✅ Total size limit 1GB
 - ✅ Single share link untuk semua files
+- ✅ Network-aware dengan auto-pause saat offline
 
-### Anonymous Sharing
+### 🔗 Anonymous Sharing
 - ✅ Generate shareable download links
-- ✅ Customizable expiration (1 min, 1 day, 7 days, 30 days)
+- ✅ Customizable expiration (1 day, 7 days, 30 days, never)
 - ✅ Download individual files atau semua sebagai ZIP
 - ✅ Track download count
 - ✅ Auto-detect deleted files
+- ✅ Copy link to clipboard
 
-### Smart Storage Management
+### 💾 Smart Storage Management
 - ✅ Multiple Dropbox accounts support
 - ✅ Auto-select account dengan storage terbanyak
-- ✅ Combined storage view di sidebar
+- ✅ Combined storage view di dashboard
 - ✅ Per-account storage monitoring
-- ✅ Visual storage usage badges
+- ✅ Visual storage usage dengan progress bars
 
-### Account Management (/accounts)
-- ✅ View all connected accounts
+### 👑 Admin Dashboard
+- ✅ Overview statistics (storage, files, shares, downloads)
+- ✅ Per-account storage breakdown
+- ✅ Top downloaded files
+- ✅ Recent shares activity
+- ✅ User management (invite, list, role change)
+- ✅ Bulk operations di semua halaman admin
+
+### ⚙️ Account Management
+- ✅ View all connected Dropbox accounts
 - ✅ Add new Dropbox account dengan credential verification
 - ✅ Delete account
 - ✅ Storage usage per account dengan color-coded badges
@@ -44,7 +72,7 @@ Aplikasi web modern untuk mengelola multiple akun Dropbox dengan fitur file shar
 ### 1. Prerequisites
 
 - Node.js 18+
-- Supabase account (untuk database)
+- Supabase account (untuk database & auth)
 - Dropbox Developer account
 
 ### 2. Buat Dropbox App
@@ -81,9 +109,19 @@ curl -X POST https://api.dropbox.com/oauth2/token \
 ### 4. Setup Supabase
 
 1. Buat project di [Supabase](https://supabase.com)
-2. Jalankan migration untuk membuat tables:
+2. Enable Email Auth di Authentication settings
+3. Jalankan migration untuk membuat tables:
 
 ```sql
+-- Users table with roles
+CREATE TABLE users (
+  id UUID PRIMARY KEY REFERENCES auth.users(id),
+  email TEXT NOT NULL,
+  role TEXT DEFAULT 'user' CHECK (role IN ('admin', 'user')),
+  created_at TIMESTAMPTZ DEFAULT now(),
+  updated_at TIMESTAMPTZ DEFAULT now()
+);
+
 -- Dropbox accounts table
 CREATE TABLE dropbox_accounts (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -98,19 +136,40 @@ CREATE TABLE dropbox_accounts (
   updated_at TIMESTAMPTZ DEFAULT now()
 );
 
+-- Files table (for user's virtual file system)
+CREATE TABLE files (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  user_id UUID REFERENCES auth.users(id),
+  filename TEXT NOT NULL,
+  dropbox_path TEXT NOT NULL,
+  dropbox_account_id UUID REFERENCES dropbox_accounts(id),
+  size BIGINT DEFAULT 0,
+  content_type TEXT,
+  share_id TEXT,
+  share_url TEXT,
+  created_at TIMESTAMPTZ DEFAULT now(),
+  updated_at TIMESTAMPTZ DEFAULT now()
+);
+
 -- Shares table
 CREATE TABLE shares (
   id TEXT PRIMARY KEY,
-  file_id TEXT NOT NULL,
+  user_id UUID REFERENCES auth.users(id),
+  file_id TEXT,
   file_name TEXT NOT NULL,
   file_path TEXT NOT NULL,
   files JSONB DEFAULT '[]',
   account_id UUID REFERENCES dropbox_accounts(id),
   account_name TEXT,
   created_at TIMESTAMPTZ DEFAULT now(),
-  expires_at TIMESTAMPTZ NOT NULL,
+  expires_at TIMESTAMPTZ,
   download_count INTEGER DEFAULT 0
 );
+
+-- Enable RLS
+ALTER TABLE users ENABLE ROW LEVEL SECURITY;
+ALTER TABLE files ENABLE ROW LEVEL SECURITY;
+ALTER TABLE shares ENABLE ROW LEVEL SECURITY;
 ```
 
 ### 5. Environment Variables
@@ -120,6 +179,7 @@ Copy `.env.example` ke `.env` dan isi:
 ```env
 # Supabase
 SUPABASE_URL=https://your-project.supabase.co
+SUPABASE_KEY=your-anon-key
 SUPABASE_SERVICE_KEY=your-service-key
 
 # App Settings
@@ -127,16 +187,13 @@ NUXT_PUBLIC_BASE_URL=http://localhost:3000
 ANONYMOUS_UPLOAD_PATH=/uploads
 ```
 
-### 6. Tambah Akun Dropbox
+### 6. Create Admin User
 
-1. Jalankan app: `npm run dev`
-2. Buka `/accounts`
-3. Klik "Add Account"
-4. Masukkan:
-   - Account Name
-   - App Key
-   - App Secret
-   - Refresh Token
+1. Register user pertama via Supabase Dashboard atau API
+2. Update role menjadi 'admin':
+```sql
+UPDATE users SET role = 'admin' WHERE email = 'your-email@example.com';
+```
 
 ### 7. Run
 
@@ -151,51 +208,106 @@ Buka http://localhost:3000
 
 ```
 ├── pages/
-│   ├── index.vue          # File browser
-│   ├── recent.vue         # Recent files
-│   ├── trash.vue          # Deleted files
-│   ├── upload.vue         # Anonymous upload
-│   ├── accounts.vue       # Account management
-│   └── download/[id].vue  # Share download page
+│   ├── index.vue              # Landing/redirect
+│   ├── login.vue              # Login page
+│   ├── drive/
+│   │   ├── index.vue          # Dashboard
+│   │   └── files.vue          # File browser
+│   ├── admin/
+│   │   ├── index.vue          # Admin dashboard
+│   │   ├── files.vue          # All files management
+│   │   ├── shares.vue         # Share links management
+│   │   └── users.vue          # User management
+│   ├── file/[id].vue          # Share download page
+│   └── auth/
+│       └── confirm.vue        # Email confirmation
 ├── server/api/
-│   ├── accounts/          # Account CRUD
-│   ├── dropbox/           # Dropbox operations
-│   ├── shares/            # Share link management
-│   └── anonymous/         # Anonymous upload APIs
-├── composables/           # Vue composables
-├── components/            # UI components
-└── server/utils/          # Server utilities
+│   ├── accounts/              # Account CRUD
+│   ├── dropbox/               # Dropbox operations
+│   ├── shares/                # Share link management
+│   ├── admin/                 # Admin-only APIs
+│   ├── user/                  # User dashboard APIs
+│   └── anonymous/             # Anonymous upload APIs
+├── middleware/
+│   └── auth.ts                # Auth & role middleware
+├── composables/
+│   └── useAuth.ts             # Auth composable
+├── layouts/
+│   └── default.vue            # Main layout with sidebar
+├── components/                # UI components
+└── server/utils/              # Server utilities
 ```
 
 ## 🛠 Tech Stack
 
 - **Nuxt 3** - Vue.js framework with SSR
 - **Tailwind CSS** - Utility-first styling
-- **Supabase** - PostgreSQL database
+- **Supabase** - PostgreSQL database & Auth
 - **Dropbox SDK** - Cloud storage API
 - **Lucide Icons** - Beautiful icons
+- **Video.js** - Video player for previews
 
 ## 📝 API Endpoints
 
-### Accounts
-- `GET /api/accounts` - List all accounts
+### Authentication
+- `POST /api/auth/login` - Login user
+- `POST /api/auth/register` - Register user
+- `POST /api/auth/logout` - Logout user
+
+### Accounts (Admin)
+- `GET /api/accounts` - List all Dropbox accounts
 - `POST /api/accounts` - Add new account
 - `DELETE /api/accounts/:id` - Delete account
 
 ### Files
-- `GET /api/dropbox/files` - List files
+- `GET /api/my-files` - List user's files
+- `GET /api/dropbox/all-files` - List all files (admin)
+- `POST /api/dropbox/upload` - Upload file chunk
 - `POST /api/dropbox/folder` - Create folder
 - `POST /api/dropbox/delete` - Delete file/folder
 - `GET /api/dropbox/download` - Get download link
 - `GET /api/dropbox/storage-all` - Get all accounts storage
 
 ### Shares
+- `POST /api/shares/create` - Create share link
 - `GET /api/shares/:id/download` - Get share info & download links
 - `GET /api/shares/:id/download-all` - Download all files as ZIP
+- `DELETE /api/shares/:id` - Delete share link
+- `GET /api/admin/shares` - List all shares (admin)
+
+### Admin
+- `GET /api/admin/dashboard` - Dashboard statistics
+- `GET /api/admin/users` - List all users
+- `POST /api/admin/users/invite` - Invite new user
+- `PUT /api/admin/users/:id/role` - Change user role
+- `POST /api/admin/cleanup` - Cleanup expired shares
+
+### Anonymous Upload
 - `POST /api/anonymous/session` - Get smart upload session
+- `POST /api/anonymous/upload` - Upload file chunk
 - `POST /api/anonymous/complete` - Complete upload & create share
+
+## 🎨 UI Features
+
+### Floating Bulk Action Bar
+Modern floating action bar yang muncul di bagian bawah layar saat ada item terseleksi:
+- Selection count badge
+- Quick action buttons (Download, Delete, Copy Links)
+- Clear selection button
+- Smooth slide-up animation
+- Konsisten di semua halaman (user files, admin files, admin shares)
+
+### File Icons with Colored Containers
+Setiap tipe file memiliki ikon dan warna container yang berbeda:
+- 📄 PDF - Red
+- 📝 Documents - Blue
+- 📊 Spreadsheets - Green
+- 🖼 Images - Purple
+- 🎬 Videos - Pink
+- 🎵 Audio - Indigo
+- 📦 Archives - Amber
+- 📁 Folders - Blue
 
 ## 📄 License
 
 MIT
-# multi-dropbox

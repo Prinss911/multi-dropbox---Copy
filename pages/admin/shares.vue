@@ -11,24 +11,6 @@
              </p>
            </div>
            
-           <!-- Bulk Actions (when items selected) -->
-           <div v-if="selectedIds.size > 0" class="flex items-center gap-2">
-              <button 
-                @click="clearSelection"
-                class="h-9 px-3 rounded-lg border bg-background hover:bg-muted text-sm font-medium transition-colors"
-              >
-                Clear
-              </button>
-              <button 
-                @click="showBulkDeleteModal = true"
-                class="h-9 px-4 rounded-lg bg-red-600 hover:bg-red-700 text-white text-sm font-medium transition-colors flex items-center gap-2"
-              >
-                <Icon name="lucide:trash-2" class="h-4 w-4" />
-                Delete {{ selectedIds.size }}
-              </button>
-           </div>
-           <!-- Rest of header content -->
-           <!-- ... -->
            <!-- Toolbar -->
            <div class="flex flex-wrap items-center gap-3">
               <!-- Search -->
@@ -87,6 +69,59 @@
     <!-- Main Content -->
     <div class="flex-1 overflow-auto px-4 md:px-6 py-6 transition-all">
        <div class="w-full h-full">
+
+        <!-- Floating Bulk Action Bar -->
+        <Transition
+          enter-active-class="transition-all duration-300 ease-out"
+          leave-active-class="transition-all duration-200 ease-in"
+          enter-from-class="opacity-0 translate-y-4"
+          leave-to-class="opacity-0 translate-y-4"
+        >
+          <div 
+            v-if="selectedIds.size > 0" 
+            class="fixed bottom-6 left-1/2 -translate-x-1/2 z-50 flex items-center gap-3 px-5 py-3 bg-[#1E1919] dark:bg-card rounded-full shadow-2xl border dark:border-border"
+          >
+            <!-- Selection Count -->
+            <div class="flex items-center gap-2 text-white dark:text-foreground">
+              <div class="h-7 w-7 rounded-full bg-blue-600 flex items-center justify-center text-sm font-bold">
+                {{ selectedIds.size }}
+              </div>
+              <span class="text-sm font-medium">selected</span>
+            </div>
+
+            <div class="w-px h-6 bg-white/20 dark:bg-border"></div>
+
+            <!-- Bulk Actions -->
+            <button 
+              @click="handleBulkCopyLinks"
+              class="flex items-center gap-2 px-4 py-2 rounded-full bg-white/10 hover:bg-white/20 text-white text-sm font-medium transition-colors"
+            >
+              <Icon name="lucide:copy" class="h-4 w-4" />
+              <span class="hidden sm:inline">Copy Links</span>
+            </button>
+
+            <button 
+              @click="showBulkDeleteModal = true"
+              :disabled="isBulkDeleting"
+              class="flex items-center gap-2 px-4 py-2 rounded-full bg-red-500/20 hover:bg-red-500/30 text-red-400 text-sm font-medium transition-colors disabled:opacity-50"
+            >
+              <Icon v-if="isBulkDeleting" name="lucide:loader-2" class="h-4 w-4 animate-spin" />
+              <Icon v-else name="lucide:trash-2" class="h-4 w-4" />
+              <span class="hidden sm:inline">Delete</span>
+            </button>
+
+            <div class="w-px h-6 bg-white/20 dark:bg-border"></div>
+
+            <!-- Clear Selection -->
+            <button 
+              @click="clearSelection"
+              class="p-2 rounded-full hover:bg-white/10 text-white/60 hover:text-white transition-colors"
+              title="Clear selection"
+            >
+              <Icon name="lucide:x" class="h-4 w-4" />
+            </button>
+          </div>
+        </Transition>
 
         <!-- Loading -->
         <div v-if="pending" class="h-full flex flex-col items-center justify-center text-muted-foreground">
@@ -407,6 +442,21 @@ const toggleSelectAll = () => {
 
 const clearSelection = () => {
   selectedIds.value = new Set()
+}
+
+// Bulk copy links
+const handleBulkCopyLinks = async () => {
+  const selectedShares = shares.value.filter(s => selectedIds.value.has(s.id))
+  const baseUrl = typeof window !== 'undefined' ? window.location.origin : ''
+  const urls = selectedShares.map(s => `${baseUrl}/file/${s.id}`).join('\n')
+  
+  try {
+    await navigator.clipboard.writeText(urls)
+    alert(`${selectedShares.length} link(s) copied to clipboard!`)
+  } catch (err) {
+    console.error('Failed to copy links:', err)
+    alert('Failed to copy links to clipboard')
+  }
 }
 
 // Fetch shares

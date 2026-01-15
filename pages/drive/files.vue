@@ -27,7 +27,7 @@
     </div>
 
     <!-- Top Stats & Controls Bar (Clean & Integrated) -->
-    <div class="sticky top-0 z-20 bg-background/95 backdrop-blur border-b px-6 py-4">
+    <div class="sticky top-0 z-20 bg-background/95 backdrop-blur border-b px-6 py-4 flex flex-col gap-4">
       <div class="w-full">
         <div class="flex flex-col md:flex-row md:items-center justify-between gap-4">
           <!-- Stats Summary (Minimalist) -->
@@ -70,6 +70,15 @@
                 <Icon :name="viewMode === 'list' ? 'lucide:layout-grid' : 'lucide:align-justify'" class="h-5 w-5" />
              </button>
 
+             <!-- New Folder Button -->
+             <button 
+               @click="createFolderModalOpen = true"
+               class="h-10 px-4 rounded-full border border-input hover:bg-accent hover:text-accent-foreground font-medium text-sm transition-all flex items-center gap-2"
+             >
+               <Icon name="lucide:folder-plus" class="h-4 w-4" />
+               <span class="hidden sm:inline">New Folder</span>
+             </button>
+
              <button 
                @click="triggerFileInput"
                class="h-10 px-5 rounded-full bg-[#0061FE] hover:bg-[#0057E5] text-white font-medium text-sm shadow-sm transition-all hover:shadow-md flex items-center gap-2 active:scale-95"
@@ -80,11 +89,83 @@
           </div>
         </div>
       </div>
+
+      <!-- Breadcrumbs -->
+      <nav class="flex items-center text-sm">
+        <ol class="flex items-center gap-2">
+           <li v-for="(crumb, idx) in breadcrumbs" :key="crumb.path" class="flex items-center">
+              <Icon v-if="idx > 0" name="lucide:chevron-right" class="h-4 w-4 text-muted-foreground mx-1" />
+              <button 
+                @click="navigateToFolder(crumb.path)"
+                class="hover:bg-muted px-2 py-1 rounded-md transition-colors font-medium"
+                :class="idx === breadcrumbs.length - 1 ? 'text-foreground cursor-default pointer-events-none' : 'text-muted-foreground hover:text-foreground'"
+              >
+                 <Icon v-if="idx === 0" name="lucide:home" class="h-4 w-4 inline mr-1 -mt-0.5" />
+                 {{ idx === 0 ? '' : crumb.name }}
+              </button>
+           </li>
+        </ol>
+      </nav>
     </div>
 
     <!-- Main Content Area -->
     <div class="flex-1 overflow-auto px-4 md:px-6 py-6 transition-all">
        <div class="w-full h-full">
+
+        <!-- Floating Bulk Action Bar -->
+        <Transition
+          enter-active-class="transition-all duration-300 ease-out"
+          leave-active-class="transition-all duration-200 ease-in"
+          enter-from-class="opacity-0 translate-y-4"
+          leave-to-class="opacity-0 translate-y-4"
+        >
+          <div 
+            v-if="selectedCount > 0" 
+            class="fixed bottom-6 left-1/2 -translate-x-1/2 z-50 flex items-center gap-3 px-5 py-3 bg-[#1E1919] dark:bg-card rounded-full shadow-2xl border dark:border-border"
+          >
+            <!-- Selection Count -->
+            <div class="flex items-center gap-2 text-white dark:text-foreground">
+              <div class="h-7 w-7 rounded-full bg-blue-600 flex items-center justify-center text-sm font-bold">
+                {{ selectedCount }}
+              </div>
+              <span class="text-sm font-medium">selected</span>
+            </div>
+
+            <div class="w-px h-6 bg-white/20 dark:bg-border"></div>
+
+            <!-- Bulk Actions -->
+            <button 
+              @click="handleBulkDownload"
+              :disabled="isBulkDownloading"
+              class="flex items-center gap-2 px-4 py-2 rounded-full bg-white/10 hover:bg-white/20 text-white text-sm font-medium transition-colors disabled:opacity-50"
+            >
+              <Icon v-if="isBulkDownloading" name="lucide:loader-2" class="h-4 w-4 animate-spin" />
+              <Icon v-else name="lucide:download" class="h-4 w-4" />
+              <span class="hidden sm:inline">Download</span>
+            </button>
+
+            <button 
+              @click="handleBulkDelete"
+              :disabled="isBulkDeleting"
+              class="flex items-center gap-2 px-4 py-2 rounded-full bg-red-500/20 hover:bg-red-500/30 text-red-400 text-sm font-medium transition-colors disabled:opacity-50"
+            >
+              <Icon v-if="isBulkDeleting" name="lucide:loader-2" class="h-4 w-4 animate-spin" />
+              <Icon v-else name="lucide:trash-2" class="h-4 w-4" />
+              <span class="hidden sm:inline">Delete</span>
+            </button>
+
+            <div class="w-px h-6 bg-white/20 dark:bg-border"></div>
+
+            <!-- Clear Selection -->
+            <button 
+              @click="clearSelection"
+              class="p-2 rounded-full hover:bg-white/10 text-white/60 hover:text-white transition-colors"
+              title="Clear selection"
+            >
+              <Icon name="lucide:x" class="h-4 w-4" />
+            </button>
+          </div>
+        </Transition>
 
         <!-- Loading -->
         <div v-if="pending" class="h-full flex flex-col items-center justify-center text-muted-foreground">
@@ -129,6 +210,18 @@
            <table class="w-full text-left border-collapse">
               <thead class="sticky top-0 bg-background/95 backdrop-blur z-10">
                  <tr>
+                    <!-- Bulk Selection Checkbox -->
+                    <th class="py-3 px-2 w-10 border-b">
+                       <div class="flex items-center justify-center">
+                          <input 
+                             type="checkbox" 
+                             :checked="isAllSelected"
+                             :indeterminate="isPartiallySelected"
+                             @change="toggleSelectAll"
+                             class="h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500 cursor-pointer"
+                          />
+                       </div>
+                    </th>
                     <th class="py-3 px-4 text-xs font-semibold text-muted-foreground uppercase tracking-wider border-b w-1/2 cursor-pointer hover:text-foreground group" @click="sortBy = 'name'">
                       Name
                       <Icon v-if="sortBy === 'name'" name="lucide:chevron-down" class="inline h-3 w-3 ml-1" />
@@ -142,35 +235,59 @@
                        <Icon v-if="sortBy === 'modified'" name="lucide:chevron-down" class="inline h-3 w-3 ml-1" />
                     </th>
                     <th class="py-3 px-4 text-xs font-semibold text-muted-foreground uppercase tracking-wider border-b w-32 hidden lg:table-cell">Members</th>
-                    <th class="py-3 px-6 text-right text-xs font-semibold text-muted-foreground uppercase tracking-wider border-b w-24">Running Actions</th>
+                    <th class="py-3 px-6 text-right text-xs font-semibold text-muted-foreground uppercase tracking-wider border-b w-24">Actions</th>
                  </tr>
               </thead>
               <tbody class="divide-y divide-border/40">
                  <tr 
                     v-for="file in paginatedFiles" 
                     :key="file.id" 
-                    class="group hover:bg-[#F7F9FA] dark:hover:bg-muted/20 transition-colors"
+                    class="group transition-colors"
+                    :class="selectedFiles.has(file.id) ? 'bg-blue-50 dark:bg-blue-900/20' : 'hover:bg-[#F7F9FA] dark:hover:bg-muted/20'"
                  >
+                    <!-- Row Checkbox -->
+                    <td class="py-3 px-2">
+                       <div class="flex items-center justify-center">
+                          <input 
+                             type="checkbox" 
+                             :checked="selectedFiles.has(file.id)"
+                             @change="toggleFileSelection(file)"
+                             class="h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500 cursor-pointer"
+                          />
+                       </div>
+                    </td>
                     <td class="py-3 px-4">
                        <div class="flex items-center gap-4">
-                          <!-- Minimalist Icon -->
+                          <!-- Minimalist Icon with Colored Container -->
                           <div class="relative shrink-0">
-                             <Icon :name="getFileIcon(file.extension)" :class="['h-8 w-8', getIconColor(file.extension)]" />
+                             <div 
+                                class="h-10 w-10 rounded-lg flex items-center justify-center transition-colors"
+                                :class="file.type === 'folder' ? 'bg-blue-50 text-blue-600 dark:bg-blue-900/20 dark:text-blue-400' : getIconColor(file.extension)"
+                             >
+                                <Icon 
+                                   :name="file.type === 'folder' ? 'lucide:folder' : getFileIcon(file.extension)" 
+                                   class="h-5 w-5"
+                                   :class="{'fill-blue-500/20': file.type === 'folder'}"
+                                />
+                             </div>
                              <!-- Verified/Shared Badge -->
-                             <span v-if="file.shareUrl" class="absolute -bottom-1 -right-1 block h-3 w-3 rounded-full bg-green-500 border-2 border-background ring-1 ring-green-100"></span>
+                             <span v-if="file.shareUrl && file.type !== 'folder'" class="absolute -bottom-1 -right-1 block h-3 w-3 rounded-full bg-green-500 border-2 border-background ring-1 ring-green-100"></span>
                           </div>
                           <div class="min-w-0 pr-4">
                              <p 
-                                @click="openPreview(file)"
+                                @click="file.type === 'folder' ? navigateToFolder(file.path) : openPreview(file)"
                                 class="font-medium text-sm text-[#1E1919] dark:text-foreground truncate cursor-pointer hover:text-[#0061FE] transition-colors" 
                                 :title="file.name"
                              >
                                 {{ file.name }}
                              </p>
-                             <div class="flex items-center gap-2 mt-0.5 md:hidden">
+                             <div class="flex items-center gap-2 mt-0.5 md:hidden" v-if="file.type !== 'folder'">
                                 <span class="text-xs text-muted-foreground">{{ formatBytes(file.size) }}</span>
                                 <span class="text-xs text-muted-foreground">•</span>
                                 <span class="text-xs text-muted-foreground">{{ formatDate(file.modified) }}</span>
+                             </div>
+                             <div  v-else class="flex items-center gap-2 mt-0.5 md:hidden">
+                                <span class="text-xs text-muted-foreground">Folder</span>
                              </div>
                           </div>
                        </div>
@@ -245,13 +362,21 @@
            <div 
               v-for="file in paginatedFiles" 
               :key="file.id"
-              class="group relative bg-card hover:bg-muted/30 border border-transparent hover:border-border/50 rounded-[10px] p-4 flex flex-col items-center text-center transition-all duration-200 cursor-pointer"
+              class="group relative bg-card border rounded-[10px] p-4 flex flex-col items-center text-center transition-all duration-200 cursor-pointer"
+              :class="selectedFiles.has(file.id) ? 'bg-blue-50 dark:bg-blue-900/20 border-blue-300 dark:border-blue-700' : 'hover:bg-muted/30 border-transparent hover:border-border/50'"
            >
-              <!-- Absolute Checkbox/Selection (Visually) -->
-              <div class="absolute top-3 left-3 opacity-0 group-hover:opacity-100 transition-opacity">
-                 <div class="h-5 w-5 rounded border border-input bg-background flex items-center justify-center cursor-pointer">
-                    <!-- Placeholder selection logic -->
-                 </div>
+              <!-- Absolute Checkbox/Selection -->
+              <div 
+                 v-if="file.type !== 'folder'"
+                 class="absolute top-3 left-3 transition-opacity z-10"
+                 :class="selectedFiles.has(file.id) ? 'opacity-100' : 'opacity-0 group-hover:opacity-100'"
+              >
+                 <input 
+                    type="checkbox" 
+                    :checked="selectedFiles.has(file.id)"
+                    @click.stop="toggleFileSelection(file)"
+                    class="h-5 w-5 rounded border-gray-300 text-blue-600 focus:ring-blue-500 cursor-pointer"
+                 />
               </div>
 
                <!-- Absolute Actions (Top Right) -->
@@ -269,10 +394,21 @@
 
               <!-- Icon Preview (Clickable for preview) -->
               <div 
-                 @click="openPreview(file)"
+                 @click="file.type === 'folder' ? navigateToFolder(file.path) : openPreview(file)"
                  class="h-24 w-full flex items-center justify-center mb-3 cursor-pointer hover:scale-105 transition-transform"
               >
-                 <Icon :name="getFileIcon(file.extension)" :class="['h-16 w-16 drop-shadow-sm', getIconColor(file.extension)]" />
+                  <!-- Colored Container for Grid View -->
+                 <div 
+                    class="h-16 w-16 rounded-2xl flex items-center justify-center shadow-sm"
+                    :class="file.type === 'folder' ? 'bg-blue-50 text-blue-600 dark:bg-blue-900/20 dark:text-blue-400' : getIconColor(file.extension)"
+                 >
+                    <Icon 
+                       :name="file.type === 'folder' ? 'lucide:folder' : getFileIcon(file.extension)" 
+                       class="h-8 w-8"
+                       :class="{'fill-blue-500/20': file.type === 'folder'}"
+                    />
+                 </div>
+                 
                  <span v-if="isVideoFile(file.extension)" class="absolute bottom-16 right-4 text-[10px] font-bold bg-black/70 text-white px-1.5 py-0.5 rounded">
                     {{ file.duration || 'VIDEO' }}
                  </span>
@@ -280,7 +416,7 @@
               
               <!-- File Name -->
               <h4 
-                 @click="openPreview(file)"
+                 @click="file.type === 'folder' ? navigateToFolder(file.path) : openPreview(file)"
                  class="font-medium text-sm text-[#1E1919] dark:text-foreground w-full truncate px-1 cursor-pointer hover:text-[#0061FE] transition-colors" 
                  :title="file.name"
               >
@@ -342,8 +478,11 @@
           <div class="p-6">
             <!-- File Info Preview -->
             <div class="flex items-center gap-4 mb-6">
-               <div class="h-10 w-10 flex items-center justify-center">
-                  <Icon :name="getFileIcon(shareTarget.extension)" class="h-10 w-10" :class="getIconColor(shareTarget.extension)" />
+               <div 
+                  class="h-12 w-12 rounded-lg flex items-center justify-center shrink-0"
+                  :class="getIconColor(shareTarget.extension)"
+               >
+                  <Icon :name="getFileIcon(shareTarget.extension)" class="h-6 w-6" />
                </div>
                <div class="min-w-0">
                   <h4 class="font-medium text-sm truncate">{{ shareTarget.name }}</h4>
@@ -560,9 +699,14 @@
             <audio :src="previewUrl" controls autoplay class="w-full max-w-md" />
           </div>
 
-          <!-- PDF/Document Preview (Unsupported for direct embed) -->
+          <!-- PDF/Document Preview -->
           <div v-else-if="previewUrl" class="bg-card p-8 rounded-xl shadow-2xl text-center max-w-md">
-            <Icon :name="getFileIcon(previewTarget.extension)" class="h-24 w-24 mx-auto mb-4" :class="getIconColor(previewTarget.extension)" />
+            <div 
+               class="h-20 w-20 mx-auto mb-6 rounded-2xl flex items-center justify-center"
+               :class="getIconColor(previewTarget.extension)"
+            >
+               <Icon :name="getFileIcon(previewTarget.extension)" class="h-10 w-10" />
+            </div>
             <p class="font-medium text-lg mb-2">{{ previewTarget.name }}</p>
             <p class="text-muted-foreground text-sm mb-6">{{ formatBytes(previewTarget.size) }}</p>
             <p class="text-sm text-muted-foreground mb-4">Preview not available for this file type</p>
@@ -612,10 +756,62 @@
         </div>
       </div>
     </Teleport>
+
+    <!-- Create Folder Modal -->
+    <Teleport to="body">
+      <div 
+        v-if="createFolderModalOpen" 
+        class="fixed inset-0 z-[70] flex items-center justify-center p-4 bg-[#1E1919]/60 backdrop-blur-[2px]"
+        @click.self="createFolderModalOpen = false"
+      >
+        <div class="bg-card w-full max-w-[400px] rounded-xl shadow-2xl border-0 overflow-hidden">
+          <div class="px-6 py-5 border-b bg-background flex items-center justify-between">
+             <h3 class="font-semibold text-lg">Create new folder</h3>
+             <button @click="createFolderModalOpen = false" class="p-1 rounded-full hover:bg-muted text-muted-foreground transition-colors">
+                <Icon name="lucide:x" class="h-5 w-5" />
+             </button>
+          </div>
+          
+          <div class="p-6">
+            <div class="space-y-4">
+              <div>
+                <label class="text-sm font-medium mb-1.5 block">Folder Name</label>
+                <input 
+                  v-model="newFolderName"
+                  type="text"
+                  placeholder="e.g. Projects"
+                  class="w-full h-10 px-3 bg-muted/30 border rounded-md text-sm focus:ring-2 focus:ring-blue-500/20 outline-none"
+                  @keyup.enter="createFolder"
+                  autofocus
+                />
+              </div>
+              
+              <div v-if="folderError" class="text-sm text-red-500 bg-red-50 p-2 rounded">
+                 {{ folderError }}
+              </div>
+              
+              <button 
+                @click="createFolder"
+                :disabled="isCreatingFolder || !newFolderName.trim()"
+                class="w-full h-10 bg-blue-600 hover:bg-blue-700 text-white font-medium rounded-md transition-colors disabled:opacity-50 flex items-center justify-center gap-2"
+              >
+                 <Icon v-if="isCreatingFolder" name="lucide:loader-2" class="h-4 w-4 animate-spin" />
+                 Create
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </Teleport>
   </div>
 </template>
 
 <script setup lang="ts">
+import { ref, computed, onMounted, onUnmounted, watch } from 'vue'
+
+const supabase = useSupabaseClient()
+const route = useRoute()
+
 interface FileEntry {
   id: string
   name: string
@@ -624,19 +820,292 @@ interface FileEntry {
   modified: string
   extension: string | null
   accountId: string
-  shareId: string | null
-  shareUrl: string | null
-  duration?: string | null
+  shareUrl?: string | null
+  duration?: string
+  shareId?: string | null
+  type?: 'file' | 'folder'
 }
-
-// Get Supabase client for access token
-const supabase = useSupabaseClient()
 
 // Filters
 const searchQuery = ref('')
 const sortBy = ref('modified')
 const viewMode = ref<'list' | 'grid'>('list')
 const currentPage = ref(1)
+// Folder State
+const currentPath = ref('/')
+const isCreatingFolder = ref(false)
+const newFolderName = ref('')
+const folderError = ref('')
+const createFolderModalOpen = ref(false)
+
+// Bulk Selection State
+const selectedFiles = ref<Set<string>>(new Set())
+
+const isAllSelected = computed(() => {
+  const currentFiles = paginatedFiles.value.filter(f => f.type !== 'folder')
+  return currentFiles.length > 0 && currentFiles.every(f => selectedFiles.value.has(f.id))
+})
+
+const isPartiallySelected = computed(() => {
+  const currentFiles = paginatedFiles.value.filter(f => f.type !== 'folder')
+  const selectedCount = currentFiles.filter(f => selectedFiles.value.has(f.id)).length
+  return selectedCount > 0 && selectedCount < currentFiles.length
+})
+
+const selectedCount = computed(() => selectedFiles.value.size)
+
+const toggleSelectAll = () => {
+  const currentFiles = paginatedFiles.value.filter(f => f.type !== 'folder')
+  if (isAllSelected.value) {
+    // Deselect all
+    currentFiles.forEach(f => selectedFiles.value.delete(f.id))
+  } else {
+    // Select all
+    currentFiles.forEach(f => selectedFiles.value.add(f.id))
+  }
+  // Force reactivity
+  selectedFiles.value = new Set(selectedFiles.value)
+}
+
+const toggleFileSelection = (file: FileEntry) => {
+  if (file.type === 'folder') return
+  
+  if (selectedFiles.value.has(file.id)) {
+    selectedFiles.value.delete(file.id)
+  } else {
+    selectedFiles.value.add(file.id)
+  }
+  // Force reactivity
+  selectedFiles.value = new Set(selectedFiles.value)
+}
+
+const clearSelection = () => {
+  selectedFiles.value = new Set()
+}
+
+// Bulk Operations State
+const isBulkDeleting = ref(false)
+const isBulkDownloading = ref(false)
+
+// Bulk Delete Handler
+const handleBulkDelete = async () => {
+  if (selectedFiles.value.size === 0) return
+  
+  const count = selectedFiles.value.size
+  if (!confirm(`Are you sure you want to delete ${count} file(s)? This action cannot be undone.`)) {
+    return
+  }
+  
+  isBulkDeleting.value = true
+  
+  try {
+    const { data: { session } } = await supabase.auth.getSession()
+    const headers = session?.access_token ? { Authorization: `Bearer ${session.access_token}` } : {}
+    
+    // Get selected file objects
+    const filesToDelete = files.value.filter(f => selectedFiles.value.has(f.id))
+    
+    // Delete files in parallel (with limit)
+    const results = await Promise.allSettled(
+      filesToDelete.map(file => 
+        $fetch('/api/dropbox/delete', {
+          method: 'POST',
+          body: {
+            path: file.path,
+            accountId: file.accountId
+          },
+          headers
+        })
+      )
+    )
+    
+    const failed = results.filter(r => r.status === 'rejected').length
+    
+    if (failed > 0) {
+      alert(`${count - failed} file(s) deleted successfully. ${failed} file(s) failed to delete.`)
+    }
+    
+    // Refresh and clear selection
+    await refresh()
+    clearSelection()
+    
+  } catch (err: any) {
+    console.error('Bulk delete error:', err)
+    alert('Failed to delete files: ' + (err.message || 'Unknown error'))
+  } finally {
+    isBulkDeleting.value = false
+  }
+}
+
+// Bulk Download Handler
+const handleBulkDownload = async () => {
+  if (selectedFiles.value.size === 0) return
+  
+  isBulkDownloading.value = true
+  
+  try {
+    const { data: { session } } = await supabase.auth.getSession()
+    const headers = session?.access_token ? { Authorization: `Bearer ${session.access_token}` } : {}
+    
+    // Get selected file objects
+    const filesToDownload = files.value.filter(f => selectedFiles.value.has(f.id))
+    
+    if (filesToDownload.length === 1) {
+      // Single file - direct download
+      const file = filesToDownload[0]
+      const response = await $fetch<{ url: string }>('/api/dropbox/download', {
+        method: 'POST',
+        body: { path: file.path, accountId: file.accountId },
+        headers
+      })
+      window.open(response.url, '_blank')
+    } else {
+      // Multiple files - download each (ZIP would require server-side processing)
+      // For now, open each in new tab (browser may block popups)
+      for (const file of filesToDownload) {
+        try {
+          const response = await $fetch<{ url: string }>('/api/dropbox/download', {
+            method: 'POST',
+            body: { path: file.path, accountId: file.accountId },
+            headers
+          })
+          // Create download link
+          const link = document.createElement('a')
+          link.href = response.url
+          link.download = file.name
+          link.target = '_blank'
+          document.body.appendChild(link)
+          link.click()
+          document.body.removeChild(link)
+          
+          // Small delay between downloads
+          await new Promise(r => setTimeout(r, 300))
+        } catch (err) {
+          console.error(`Failed to download ${file.name}:`, err)
+        }
+      }
+    }
+    
+    clearSelection()
+    
+  } catch (err: any) {
+    console.error('Bulk download error:', err)
+    alert('Failed to download files: ' + (err.message || 'Unknown error'))
+  } finally {
+    isBulkDownloading.value = false
+  }
+}
+
+// Breadcrumbs
+const breadcrumbs = computed(() => {
+  const parts = currentPath.value.split('/').filter(p => p)
+  const crumbs = [{ name: 'Home', path: '/' }]
+  let current = '/'
+  
+  parts.forEach(part => {
+    current = current === '/' ? `/${part}` : `${current}/${part}`
+    crumbs.push({ name: part, path: current })
+  })
+  
+  return crumbs
+})
+
+// Navigation
+const navigateToFolder = (path: string) => {
+  currentPath.value = path
+}
+
+const navigateUp = () => {
+  if (currentPath.value === '/') return
+  const parts = currentPath.value.split('/')
+  parts.pop()
+  currentPath.value = parts.join('/') || '/'
+}
+
+// Filtered Files based on Current Path (Virtual Folder System)
+const filteredFiles = computed(() => {
+  if (!data.value) return []
+  
+  const path = currentPath.value
+  
+  // For root path ('/'), show all files that are either:
+  // 1. Direct children of root (e.g., /file.txt)
+  // 2. In /uploads folder (legacy structure)
+  // 3. Folders at root level
+  
+  if (path === '/') {
+    // At root, show everything for now (flat view)
+    // Files in /uploads/ are treated as root-level files
+    // Folders created by user will show as navigable folders
+    return data.value.filter(file => {
+      // Show folders that are direct children of root
+      if (file.type === 'folder') {
+        const slashCount = (file.path.match(/\//g) || []).length
+        return slashCount === 1 // e.g., /FolderName
+      }
+      
+      // Show all files (legacy /uploads/ files and any root files)
+      // Eventually we can filter by parent folder when fully implementing virtual folders
+      return true
+    })
+  }
+  
+  // For subfolders, show direct children only
+  return data.value.filter(file => {
+    // Must start with currentPath/
+    if (!file.path.startsWith(path + '/')) return false
+    
+    // Check it's a direct child (only one more path segment)
+    const subPath = file.path.substring(path.length + 1) // +1 to skip the /
+    return !subPath.includes('/') // No more slashes = direct child
+  })
+})
+
+const sortedFiles = computed(() => {
+  const filtered = filteredFiles.value.filter(f => 
+    f.name.toLowerCase().includes(searchQuery.value.toLowerCase())
+  )
+  
+  // Folders first, then files
+  return filtered.sort((a, b) => {
+    if (a.type === b.type) {
+       // Sort by date desc
+       return new Date(b.modified || 0).getTime() - new Date(a.modified || 0).getTime()
+    }
+    return a.type === 'folder' ? -1 : 1
+  })
+})
+
+// Create Folder
+const createFolder = async () => {
+  if (!newFolderName.value.trim()) return
+  
+  isCreatingFolder.value = true
+  folderError.value = ''
+  
+  try {
+    const { data: { session } } = await supabase.auth.getSession()
+    const response = await $fetch<{ success: boolean, folder: any }>('/api/folder/create', {
+      method: 'POST',
+      body: {
+        name: newFolderName.value,
+        parentPath: currentPath.value
+      },
+      headers: session?.access_token ? { Authorization: `Bearer ${session.access_token}` } : {}
+    })
+    
+    // Refresh list
+    await refresh()
+    createFolderModalOpen.value = false
+    newFolderName.value = ''
+  } catch (err: any) {
+    console.error('Create folder error:', err)
+    folderError.value = err.statusMessage || 'Failed to create folder'
+  } finally {
+    isCreatingFolder.value = false
+  }
+}
+
 const pageSize = 50
 
 // Upload state
@@ -692,7 +1161,8 @@ const handleVisibilityChange = async () => {
 }
 
 // Network status tracking
-const isOnline = ref(navigator.onLine)
+// Network status tracking
+const isOnline = ref(true) // Default to true for SSR
 
 const handleOnline = () => {
   isOnline.value = true
@@ -706,6 +1176,8 @@ const handleOffline = () => {
 
 // Wait for network to be online (with timeout)
 const waitForOnline = (timeoutMs: number = 30000): Promise<boolean> => {
+  if (import.meta.server) return Promise.resolve(true) // Always online on server
+  
   return new Promise((resolve) => {
     if (navigator.onLine) {
       resolve(true)
@@ -729,6 +1201,7 @@ const waitForOnline = (timeoutMs: number = 30000): Promise<boolean> => {
 
 // Setup and cleanup event listeners
 onMounted(() => {
+  isOnline.value = navigator.onLine // Sync initial state
   window.addEventListener('beforeunload', handleBeforeUnload)
   document.addEventListener('visibilitychange', handleVisibilityChange)
   window.addEventListener('online', handleOnline)
@@ -1011,7 +1484,12 @@ const processUpload = async (filesToUpload: File[]) => {
       
       try {
         uploadingFileName.value = file.name // Note: This will change rapidly in parallel mode
-        const uploadPath = `/uploads/${sanitizeFilename(file.name)}`
+        
+        // Define upload path (with folder support)
+        // If currentPath is '/', upload to /uploads/filename
+        // If currentPath is '/folder', upload to /folder/filename
+        const basePath = currentPath.value === '/' ? '/uploads' : currentPath.value
+        const uploadPath = `${basePath}/${sanitizeFilename(file.name)}`
         
         // Choose upload method
         const uploadFn = file.size > LARGE_FILE_THRESHOLD ? uploadLargeFile : uploadSmallFile
@@ -1114,30 +1592,7 @@ const activeSharesCount = computed(() => {
   return files.value.filter(f => f.shareUrl).length
 })
 
-// Filter and sort
-const sortedFiles = computed(() => {
-  let result = [...files.value]
 
-  // Search filter
-  if (searchQuery.value) {
-    const query = searchQuery.value.toLowerCase()
-    result = result.filter(f => 
-      f.name.toLowerCase().includes(query) || 
-      f.path.toLowerCase().includes(query)
-    )
-  }
-
-  // Sort
-  if (sortBy.value === 'name') {
-    result.sort((a, b) => a.name.localeCompare(b.name))
-  } else if (sortBy.value === 'size') {
-    result.sort((a, b) => b.size - a.size)
-  } else {
-    result.sort((a, b) => new Date(b.modified).getTime() - new Date(a.modified).getTime())
-  }
-
-  return result
-})
 
 // Pagination
 const totalPages = computed(() => Math.ceil(sortedFiles.value.length / pageSize))
