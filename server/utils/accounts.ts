@@ -67,8 +67,9 @@ export async function getActiveAccount(): Promise<DropboxAccount | null> {
         .from('dropbox_accounts')
         .select('*')
         .eq('is_active', true)
+        .order('created_at', { ascending: true })
         .limit(1)
-        .single()
+        .maybeSingle()
 
     if (error || !data) {
         console.log('[getActiveAccount] No active account found, falling back to first account')

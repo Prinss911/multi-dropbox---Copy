@@ -311,12 +311,22 @@ const fetchUsers = async () => {
 // Computed users list from profiles
 const filteredUsers = computed(() => {
   let result = rawProfiles.value.map(profile => {
+    // Determine status - use db status, fallback to heuristic
+    let status = 'Invited'
+    if (profile.status === 'active') {
+      status = 'Active'
+    } else if (profile.status === 'inactive') {
+      status = 'Inactive'
+    } else if (profile.status === 'invited' || !profile.status) {
+      status = 'Invited'
+    }
+
     return {
       id: profile.id,
       name: profile.name || '',
       email: profile.email || 'Unknown',
-      role: profile.role || 'user', // Default to user if null
-      status: profile.name ? 'Active' : 'Invited', // Assume invited if name not set
+      role: profile.role || 'user',
+      status: status,
       lastLogin: new Date(profile.updated_at || profile.created_at).toISOString()
     }
   })

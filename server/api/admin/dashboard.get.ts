@@ -42,7 +42,7 @@ export default defineEventHandler(async (event) => {
         // Get share stats from database
         const { data: shares } = await supabase
             .from('shares')
-            .select('id, created_at, expires_at, download_count, file_name, account_name')
+            .select('id, created_at, expires_at, download_count, file_name, account_name, account_id')
             .order('created_at', { ascending: false })
 
         const allShares = (shares || []) as any[]
@@ -66,6 +66,7 @@ export default defineEventHandler(async (event) => {
             .map(s => ({
                 fileName: s.file_name,
                 accountName: s.account_name,
+                accountId: s.account_id,
                 downloads: s.download_count
             }))
 
@@ -74,6 +75,7 @@ export default defineEventHandler(async (event) => {
             id: s.id,
             fileName: s.file_name,
             accountName: s.account_name,
+            accountId: s.account_id,
             createdAt: s.created_at,
             expiresAt: s.expires_at,
             downloads: s.download_count

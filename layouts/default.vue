@@ -172,9 +172,15 @@
     <div class="flex-1 flex flex-col min-w-0">
         <header class="h-14 border-b bg-background/95 backdrop-blur flex items-center justify-between px-6 sticky top-0 z-10">
            <div class="flex items-center gap-4">
-              <h1 class="font-semibold text-lg">
-                {{ isAdmin ? (activeAccount?.name || 'My Files') : 'My Files' }}
-              </h1>
+              <div>
+                <h1 class="font-semibold text-lg leading-none">
+                  {{ isAdmin ? 'File Explorer' : 'My Files' }}
+                </h1>
+                <p v-if="isAdmin && activeAccount" class="text-xs text-muted-foreground mt-1.5 flex items-center gap-1.5">
+                  <span class="w-1.5 h-1.5 rounded-full bg-emerald-500 shadow-[0_0_6px_rgba(16,185,129,0.4)]"></span>
+                  {{ activeAccount.name }}
+                </p>
+              </div>
            </div>
            <div class="flex items-center gap-2">
                <div class="relative hidden sm:block">

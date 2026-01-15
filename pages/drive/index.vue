@@ -183,9 +183,13 @@
                              </div>
                           </td>
                           <td class="px-6 py-3 text-sm text-muted-foreground hidden sm:table-cell">
-                             <span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-muted text-muted-foreground">
-                                {{ share.accountName }}
-                             </span>
+                              <div class="flex items-center gap-2">
+                                <div 
+                                    class="w-2 h-2 rounded-full shrink-0"
+                                    :style="{ backgroundColor: getAccountColor(share.accountId, share.accountName) }"
+                                ></div>
+                                <span class="text-sm text-[#1E1919] dark:text-foreground">{{ share.accountName }}</span>
+                              </div>
                           </td>
                           <td class="px-6 py-3 text-sm text-muted-foreground hidden md:table-cell">
                              {{ formatDate(share.createdAt) }}
@@ -287,12 +291,14 @@ interface DashboardData {
   topDownloaded: {
     fileName: string
     accountName: string
+    accountId?: string
     downloads: number
   }[]
   recentShares: {
     id: string
     fileName: string
     accountName: string
+    accountId?: string
     createdAt: string
     expiresAt: string | null
     downloads: number
@@ -320,6 +326,25 @@ const { data, pending, error, refresh } = await useFetch<DashboardData>('/api/ad
 })
 
 const accountColors = ['#0061FE', '#0070E0', '#007EE5', '#248CF2', '#4D9BF7', '#76ABFC']
+
+const getAccountColor = (accountId?: string, accountName?: string): string => {
+  if (!accountId && !accountName) return accountColors[0]
+  
+  // Try finding by ID first
+  let index = -1
+  if (data.value?.accounts) {
+      if (accountId) {
+          index = data.value.accounts.findIndex(a => a.id === accountId)
+      }
+      // Fallback to name match
+      if (index === -1 && accountName) {
+          index = data.value.accounts.findIndex(a => a.name === accountName)
+      }
+  }
+  
+  if (index === -1) return accountColors[0]
+  return accountColors[index % accountColors.length]
+}
 
 const formatBytes = (bytes: number): string => {
   if (bytes === 0) return '0 B'

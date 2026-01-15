@@ -56,11 +56,23 @@ export const useAuth = () => {
     const isAdmin = computed(() => role.value === 'admin')
 
     const login = async (email: string, password: string) => {
-        const { error } = await client.auth.signInWithPassword({
+        const { error, data } = await client.auth.signInWithPassword({
             email,
             password
         })
         if (error) throw error
+
+        // Update profile status to active after successful login
+        if (data.user) {
+            try {
+                await client
+                    .from('profiles')
+                    .update({ status: 'active', updated_at: new Date().toISOString() })
+                    .eq('id', data.user.id)
+            } catch (err) {
+                console.warn('Failed to update profile status:', err)
+            }
+        }
     }
 
     const logout = async () => {
