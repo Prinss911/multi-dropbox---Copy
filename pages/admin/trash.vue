@@ -311,11 +311,16 @@ const deleteForever = async (entry: TrashFile) => {
   
   isDeleting.value = entry.id
   try {
-    await $fetch('/api/dropbox/permanent-delete', {
+    const response = await $fetch<{ success: boolean; isPersonalAccount?: boolean; alreadyInTrash?: boolean; message: string }>('/api/dropbox/permanent-delete', {
       method: 'POST',
       body: { path: entry.path, accountId: entry.accountId }
     })
     files.value = files.value.filter(f => f.id !== entry.id)
+    
+    // Show info for personal accounts
+    if (response.isPersonalAccount || response.alreadyInTrash) {
+      alert('Note: For personal Dropbox accounts, files in trash will be automatically deleted after 30 days.')
+    }
   } catch (err: any) {
     console.error('Permanent delete error:', err)
     const message = err.data?.message || err.message || 'Failed to permanently delete'
@@ -337,15 +342,23 @@ const emptyTrash = async () => {
   
   // Delete all files one by one
   const filesToDelete = [...files.value]
+  let successCount = 0
+  let personalAccountWarning = false
+
   for (const file of filesToDelete) {
     if (file.path) {
       try {
-        await $fetch('/api/dropbox/permanent-delete', {
+        const response = await $fetch<{ success: boolean; isPersonalAccount?: boolean; alreadyInTrash?: boolean }>('/api/dropbox/permanent-delete', {
           method: 'POST',
           body: { path: file.path, accountId: file.accountId }
         })
         // Remove from list as we go
         files.value = files.value.filter(f => f.id !== file.id)
+        successCount++
+        
+        if (response.isPersonalAccount || response.alreadyInTrash) {
+          personalAccountWarning = true
+        }
       } catch (err: any) {
         console.error('Error deleting:', file.name, err)
         // Continue with next file even if one fails
@@ -354,5 +367,10 @@ const emptyTrash = async () => {
   }
   
   isEmptyingTrash.value = false
+
+  // Show info message
+  if (personalAccountWarning && successCount > 0) {
+    alert(`${successCount} file(s) processed. Note: For personal Dropbox accounts, files in trash will be automatically deleted after 30 days.`)
+  }
 }
 </script>

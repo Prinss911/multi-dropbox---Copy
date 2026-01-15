@@ -123,7 +123,11 @@
                              <Icon :name="getFileIcon(file.extension)" :class="['h-8 w-8', getIconColor(file.extension)]" />
                           </div>
                           <div class="min-w-0">
-                             <p class="font-medium text-sm text-[#1E1919] dark:text-foreground truncate" :title="file.name">
+                             <p 
+                                @click="openPreview(file)"
+                                class="font-medium text-sm text-[#1E1919] dark:text-foreground truncate cursor-pointer hover:text-[#0061FE] transition-colors" 
+                                :title="file.name"
+                             >
                                 {{ file.name }}
                              </p>
                              <div class="flex items-center gap-2 mt-0.5 lg:hidden">
@@ -164,6 +168,13 @@
                              class="h-8 w-8 flex items-center justify-center rounded hover:bg-white hover:text-[#0061FE] hover:shadow-sm transition-all text-muted-foreground"
                           >
                              <Icon name="lucide:download" class="h-4 w-4" />
+                          </button>
+                          <button 
+                             @click="openPreview(file)"
+                             title="Preview"
+                             class="h-8 w-8 flex items-center justify-center rounded hover:bg-purple-50 hover:text-purple-600 hover:shadow-sm transition-all text-muted-foreground"
+                          >
+                             <Icon name="lucide:eye" class="h-4 w-4" />
                           </button>
                           <button 
                              @click="openShareModal(file)"
@@ -359,6 +370,97 @@
                   Delete
                </button>
             </div>
+          </div>
+        </div>
+      </div>
+    </Teleport>
+
+    <!-- Preview Modal -->
+    <Teleport to="body">
+      <div 
+        v-if="previewTarget" 
+        class="fixed inset-0 z-[70] flex items-center justify-center p-4 bg-black/90"
+        @click.self="closePreview"
+      >
+        <!-- Close Button -->
+        <button 
+          @click="closePreview"
+          class="absolute top-4 right-4 z-10 h-10 w-10 flex items-center justify-center rounded-full bg-white/10 hover:bg-white/20 text-white transition-colors"
+        >
+          <Icon name="lucide:x" class="h-6 w-6" />
+        </button>
+
+        <!-- File Info Header -->
+        <div class="absolute top-4 left-4 z-10 flex items-center gap-3 max-w-[50%]">
+          <Icon :name="getFileIcon(previewTarget.extension)" class="h-8 w-8 text-white shrink-0" />
+          <div class="min-w-0">
+            <p class="text-white font-medium truncate">{{ previewTarget.name }}</p>
+            <p class="text-white/60 text-sm">{{ formatBytes(previewTarget.size) }} • {{ previewTarget.accountName }}</p>
+          </div>
+        </div>
+
+        <!-- Action Buttons -->
+        <div class="absolute bottom-4 left-1/2 -translate-x-1/2 z-10 flex gap-2">
+          <button 
+            @click="handleDownload(previewTarget)"
+            class="px-4 py-2 rounded-lg bg-white/10 hover:bg-white/20 text-white transition-colors flex items-center gap-2"
+          >
+            <Icon name="lucide:download" class="h-4 w-4" />
+            Download
+          </button>
+          <button 
+            @click="openShareModal(previewTarget); closePreview()"
+            class="px-4 py-2 rounded-lg bg-[#0061FE] hover:bg-[#0057E5] text-white transition-colors flex items-center gap-2"
+          >
+            <Icon name="lucide:share-2" class="h-4 w-4" />
+            Share
+          </button>
+        </div>
+
+        <!-- Preview Content -->
+        <div class="max-w-[90vw] max-h-[80vh] flex items-center justify-center">
+          <!-- Loading -->
+          <div v-if="isLoadingPreview" class="flex flex-col items-center gap-4 text-white">
+            <Icon name="lucide:loader-2" class="h-12 w-12 animate-spin" />
+            <p>Loading preview...</p>
+          </div>
+
+          <!-- Image Preview -->
+          <img 
+            v-else-if="previewUrl && isImageFile(previewTarget.extension)"
+            :src="previewUrl"
+            :alt="previewTarget.name"
+            class="max-w-full max-h-[80vh] object-contain rounded-lg shadow-2xl"
+          />
+
+          <!-- Video Preview -->
+          <video 
+            v-else-if="previewUrl && isVideoFile(previewTarget.extension)"
+            :src="previewUrl"
+            controls
+            autoplay
+            class="max-w-full max-h-[80vh] rounded-lg shadow-2xl"
+          />
+
+          <!-- Audio Preview -->
+          <div v-else-if="previewUrl && isAudioFile(previewTarget.extension)" class="bg-card p-8 rounded-xl shadow-2xl text-center">
+            <Icon :name="getFileIcon(previewTarget.extension)" class="h-24 w-24 mx-auto mb-4 text-indigo-500" />
+            <p class="font-medium text-lg mb-4">{{ previewTarget.name }}</p>
+            <audio :src="previewUrl" controls autoplay class="w-full max-w-md" />
+          </div>
+
+          <!-- Other file types -->
+          <div v-else-if="previewUrl" class="bg-card p-8 rounded-xl shadow-2xl text-center max-w-md">
+            <Icon :name="getFileIcon(previewTarget.extension)" class="h-24 w-24 mx-auto mb-4" :class="getIconColor(previewTarget.extension)" />
+            <p class="font-medium text-lg mb-2">{{ previewTarget.name }}</p>
+            <p class="text-muted-foreground text-sm mb-6">{{ formatBytes(previewTarget.size) }}</p>
+            <p class="text-sm text-muted-foreground mb-4">Preview not available for this file type</p>
+            <button 
+              @click="previewUrl && navigateTo(previewUrl, { external: true, open: { target: '_blank' } })"
+              class="px-6 py-2 rounded-lg bg-[#0061FE] hover:bg-[#0057E5] text-white transition-colors"
+            >
+              Open in New Tab
+            </button>
           </div>
         </div>
       </div>
@@ -650,5 +752,57 @@ const handleDelete = async () => {
   } finally {
     isDeleting.value = false
   }
+}
+
+// Preview Modal State
+const previewTarget = ref<FileEntry | null>(null)
+const previewUrl = ref<string | null>(null)
+const isLoadingPreview = ref(false)
+
+// Open preview
+const openPreview = async (file: FileEntry) => {
+  previewTarget.value = file
+  previewUrl.value = null
+  isLoadingPreview.value = true
+
+  try {
+    const response = await $fetch<{ link: string }>('/api/dropbox/download', {
+      query: { 
+        path: file.path, 
+        accountId: file.accountId 
+      }
+    })
+    previewUrl.value = response.link
+  } catch (err: any) {
+    console.error('Failed to get preview URL:', err)
+    alert('Failed to load preview: ' + (err.data?.message || err.message || 'Unknown error'))
+    previewTarget.value = null
+  } finally {
+    isLoadingPreview.value = false
+  }
+}
+
+// Close preview
+const closePreview = () => {
+  previewTarget.value = null
+  previewUrl.value = null
+}
+
+// Check if file is image
+const isImageFile = (ext: string | null): boolean => {
+  if (!ext) return false
+  return ['jpg', 'jpeg', 'png', 'gif', 'webp', 'bmp', 'svg'].includes(ext.toLowerCase())
+}
+
+// Check if file is video
+const isVideoFile = (ext: string | null): boolean => {
+  if (!ext) return false
+  return ['mp4', 'mkv', 'avi', 'mov', 'webm', 'wmv', 'flv'].includes(ext.toLowerCase())
+}
+
+// Check if file is audio
+const isAudioFile = (ext: string | null): boolean => {
+  if (!ext) return false
+  return ['mp3', 'wav', 'flac', 'aac', 'ogg', 'm4a', 'wma'].includes(ext.toLowerCase())
 }
 </script>
