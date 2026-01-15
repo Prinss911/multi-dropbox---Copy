@@ -95,9 +95,9 @@ const handleLogin = async () => {
     
     // Redirect based on role
     if (isAdmin.value) {
-      router.push('/files')
+      router.push('/drive/files')
     } else {
-      router.push('/user')
+      router.push('/drive')
     }
   } catch (err: any) {
     error.value = err.message || 'Invalid credentials'
