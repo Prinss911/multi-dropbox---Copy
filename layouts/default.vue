@@ -200,9 +200,12 @@
 
     <!-- Main Content -->
     <div class="flex-1 flex flex-col min-w-0">
-        <header class="h-14 border-b bg-background/95 backdrop-blur flex items-center justify-between px-6 sticky top-0 z-10">
+        <header class="h-14 border-b bg-background/95 backdrop-blur flex items-center justify-between px-4 md:px-6 sticky top-0 z-10">
            <div class="flex items-center gap-4">
-              <h1 class="font-semibold text-xl tracking-tight text-[#1E1919] dark:text-foreground">
+              <UiButton variant="ghost" size="icon" class="md:hidden -ml-2" @click="isMobileMenuOpen = true">
+                <Icon name="lucide:menu" class="h-5 w-5" />
+              </UiButton>
+              <h1 class="font-semibold text-xl tracking-tight text-foreground">
                 <ClientOnly>
                   {{ isAdmin ? 'File Explorer' : 'My Files' }}
                   <template #fallback>Files</template>
@@ -211,7 +214,7 @@
               
               <!-- Connected Accounts Badge (Admin Only) -->
               <ClientOnly>
-              <NuxtLink v-if="isAdmin && accounts.length > 0" to="/admin/accounts" class="hidden md:flex items-center h-7 px-3 rounded-full bg-blue-50 text-blue-700 dark:bg-blue-500/10 dark:text-blue-400 border border-blue-200/50 dark:border-blue-500/20 text-xs font-medium shadow-sm hover:bg-blue-100 dark:hover:bg-blue-500/20 transition-colors">
+              <NuxtLink v-if="isAdmin && accounts.length > 0" to="/admin/accounts" class="hidden md:flex items-center h-7 px-3 rounded-full bg-primary/10 text-primary border border-primary/20 text-xs font-medium shadow-sm hover:bg-primary/20 transition-colors">
                  <Icon name="lucide:hard-drive" class="h-3 w-3 mr-1.5" />
                  <span>{{ accounts.length }} Account{{ accounts.length > 1 ? 's' : '' }}</span>
               </NuxtLink>
@@ -341,10 +344,14 @@
         </div>
       </div>
     </Teleport>
+
+    <!-- Global Toast Notifications -->
+    <UiToastToaster />
   </div>
 </template>
 
 <script setup lang="ts">
+import { UiToastToaster } from '#components'
 const route = useRoute()
 const { user, isAdmin, logout } = useAuth()
 

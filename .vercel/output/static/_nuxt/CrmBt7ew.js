@@ -1,0 +1,1 @@
+import{d as t,c as s,a as n,o}from"./D0_loxAU.js";const r={class:"min-h-screen flex items-center justify-center"},i=t({__name:"index",setup(a){return(c,e)=>(o(),s("div",r,[...e[0]||(e[0]=[n("div",{class:"text-muted-foreground"},"Redirecting to upload...",-1)])]))}});export{i as default};

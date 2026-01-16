@@ -2,6 +2,39 @@
 
 All notable changes to this project will be documented in this file.
 
+## [1.4.0] - 2026-01-16
+
+### Added
+
+#### Code Quality & Testing 🧪
+- **Unit Testing Infrastructure** - Added Vitest and Happy DOM setup
+- **Test Suite** - Comprehensive unit tests for file selection logic (`tests/unit/useFileSelection.test.ts`)
+- **Skeleton Loading** - New `Skeleton.vue` component for smoother loading states
+- **Modular Architecture** - Extracted core logic into reusable composables:
+  - `useFileBrowser` - Data fetching & navigation
+  - `useFileSelection` - Selection state management
+  - `useFileOperations` - CRUD operations
+  - `useFileDragDrop` - Drag & drop interactions
+  - `useFileUpload` - Upload management
+  - `useFilePreview` - Preview modal logic
+  - `useFileShare` - Share functionality
+
+#### Improved User Experience 🚀
+- **Skeleton Screens** - Realistic loading placeholders instead of generic spinners
+- **Wake Lock** - Prevents screen sleep during large file uploads
+- **Chunked Uploads** - Better handling for large file transfers (>150MB)
+- **Enhanced Drag & Drop** - Visual feedback and long-press protection improvements
+
+### Changed
+- **Refactored `files.vue`** - Reduced monolithic component size by >60% via composables
+- **Sync to Async** - Converted `useFileBrowser` to async function for proper await handling
+- **Toast Notifications** - Standardized usage via `useToast` composable
+
+### Fixed
+- **Build Error** - Fixed top-level await issue in composables
+- **Syntax Error** - Resolved TypeScript syntax issue in `useToast.ts`
+- **Error Handling** - Improved "reading meta of undefined" protection in middleware
+
 ## [1.3.0] - 2026-01-16
 
 ### Added
@@ -202,4 +235,3 @@ All notable changes to this project will be documented in this file.
 - Admin dashboard with statistics
 - User authentication with Supabase
 - Role-based access control (Admin/User)
-

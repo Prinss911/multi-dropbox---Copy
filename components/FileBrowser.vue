@@ -60,36 +60,38 @@
     </Transition>
 
     <!-- Header with Breadcrumb and Actions -->
-    <div class="flex items-center justify-between">
-      <div class="flex items-center gap-2">
+    <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6">
+      <div class="flex items-center gap-1 overflow-x-auto no-scrollbar mask-gradient-right">
         <UiButton 
           v-if="currentPath" 
           variant="ghost" 
           size="icon" 
           @click="navigateUp"
-          class="h-8 w-8"
+          class="h-8 w-8 shrink-0"
         >
           <Icon name="lucide:arrow-left" class="h-4 w-4" />
         </UiButton>
-        <nav class="flex items-center gap-1 text-sm">
+        <nav class="flex items-center text-sm font-medium text-muted-foreground whitespace-nowrap">
           <button 
             @click="fetchFiles('')"
-            class="text-muted-foreground hover:text-foreground transition-colors"
+            class="hover:text-foreground hover:bg-muted px-2 py-1 rounded-md transition-colors"
+            :class="!currentPath ? 'text-foreground font-semibold bg-muted/50' : ''"
           >
-            Root
+            Home
           </button>
           <template v-for="(segment, index) in pathSegments" :key="index">
-            <Icon name="lucide:chevron-right" class="h-4 w-4 text-muted-foreground" />
+            <Icon name="lucide:chevron-right" class="h-4 w-4 mx-0.5 text-muted-foreground/50" />
             <button 
               @click="navigateToPath(index)"
-              :class="index === pathSegments.length - 1 ? 'font-medium text-foreground' : 'text-muted-foreground hover:text-foreground transition-colors'"
+              class="hover:text-foreground hover:bg-muted px-2 py-1 rounded-md transition-colors"
+              :class="index === pathSegments.length - 1 ? 'text-foreground font-semibold bg-muted/50' : ''"
             >
               {{ segment }}
             </button>
           </template>
         </nav>
       </div>
-      <div class="flex gap-2">
+      <div class="flex gap-2 shrink-0">
         <!-- Upload Button -->
         <UiButton variant="outline" size="sm" @click="triggerUpload" :disabled="isUploading">
           <Icon :name="isUploading ? 'lucide:loader-2' : 'lucide:upload'" :class="['mr-2 h-4 w-4', isUploading && 'animate-spin']" />
@@ -187,7 +189,7 @@
           <UiTableRow 
             v-for="entry in files" 
             :key="entry.id" 
-            :class="'group cursor-pointer transition-colors ' + (isSelected(entry.id) ? 'bg-primary/10' : 'hover:bg-muted/50')"
+            :class="'group cursor-pointer select-none transition-colors ' + (isSelected(entry.id) ? 'bg-primary/10' : 'hover:bg-accent/50')"
             @click="handleEntryClick(entry)"
           >
             <UiTableCell class="px-2 md:px-4" @click.stop>
@@ -195,17 +197,19 @@
                 type="checkbox" 
                 :checked="isSelected(entry.id)"
                 @change="toggleSelect(entry.id)"
-                class="h-4 w-4 rounded border-muted-foreground"
+                class="h-4 w-4 rounded border-muted-foreground accent-primary"
               />
             </UiTableCell>
             <UiTableCell class="font-medium flex items-center gap-3 py-3 px-2 md:px-4">
-              <div :class="['p-2 rounded shrink-0', getIconColor(entry)]">
-                <Icon :name="getFileIcon(entry)" class="h-4 w-4" :class="entry.type === 'folder' ? 'fill-current' : ''" />
+              <div :class="['p-2 rounded-lg shrink-0 transition-colors', getIconColor(entry)]">
+                <Icon :name="getFileIcon(entry)" class="h-5 w-5" :class="entry.type === 'folder' ? 'fill-current' : ''" />
               </div>
               <div class="flex flex-col min-w-0">
-                <span class="text-sm font-medium text-foreground truncate">{{ entry.name }}</span>
-                <span class="text-xs text-muted-foreground md:hidden">
-                  {{ entry.type === 'folder' ? 'Folder' : formatFileSize(entry.size) }}
+                <span class="text-sm font-semibold text-foreground truncate group-hover:text-primary transition-colors">{{ entry.name }}</span>
+                <span class="text-xs text-muted-foreground md:hidden flex items-center gap-1">
+                  <span>{{ entry.type === 'folder' ? 'Folder' : formatFileSize(entry.size) }}</span>
+                  <span class="text-muted-foreground/40">•</span>
+                  <span>{{ formatDate(entry.modified) }}</span>
                 </span>
               </div>
             </UiTableCell>
@@ -219,7 +223,7 @@
               {{ formatDate(entry.modified) }}
             </UiTableCell>
             <UiTableCell class="text-right" @click.stop>
-              <div class="flex items-center justify-end gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+              <div class="flex items-center justify-end gap-1 opacity-100 lg:opacity-0 lg:group-hover:opacity-100 transition-opacity">
                 <UiButton 
                   v-if="entry.type === 'file'"
                   variant="ghost" 

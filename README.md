@@ -96,6 +96,11 @@ Aplikasi web modern untuk mengelola multiple akun Dropbox dengan fitur file shar
 - ✅ Expiration countdown (30 days retention)
 - ✅ Filter expired entries automatically
 
+### 🧪 Testing & Quality Assurance
+- ✅ **Unit Testing** - Comprehensive test suite using Vitest
+- ✅ **Composable Testing** - Logic validation for critical features
+- ✅ **Skeleton Loading** - Realistic loading states for better UX
+
 ## ⚠️ Known Limitations
 
 ### Dropbox Personal Account
@@ -279,35 +284,18 @@ Buka http://localhost:3000
 ## 📁 Project Structure
 
 ```
-├── pages/
-│   ├── index.vue              # Landing/redirect
-│   ├── login.vue              # Login page
-│   ├── drive/
-│   │   ├── index.vue          # Dashboard
-│   │   └── files.vue          # File browser
-│   ├── admin/
-│   │   ├── index.vue          # Admin dashboard
-│   │   ├── files.vue          # All files management
-│   │   ├── shares.vue         # Share links management
-│   │   └── users.vue          # User management
-│   ├── file/[id].vue          # Share download page
-│   └── auth/
-│       └── confirm.vue        # Email confirmation
-├── server/api/
-│   ├── accounts/              # Account CRUD
-│   ├── dropbox/               # Dropbox operations
-│   ├── shares/                # Share link management
-│   ├── admin/                 # Admin-only APIs
-│   ├── user/                  # User dashboard APIs
-│   └── anonymous/             # Anonymous upload APIs
-├── middleware/
-│   └── auth.ts                # Auth & role middleware
-├── composables/
-│   └── useAuth.ts             # Auth composable
-├── layouts/
-│   └── default.vue            # Main layout with sidebar
-├── components/                # UI components
-└── server/utils/              # Server utilities
+├── pages/                 # Vue pages (file-based routing)
+├── server/api/            # API endpoints
+├── components/            # UI components
+├── composables/           # Reusable logic (State, API, Logic)
+│   ├── useFileBrowser.ts  # File browsing logic
+│   ├── useFileSelection.ts # Selection state
+│   ├── useFileUpload.ts   # Upload logic
+│   └── ...
+├── middleware/            # Nuxt middleware
+├── layouts/               # Page layouts
+├── tests/                 # Unit tests (Vitest)
+└── server/utils/          # Server utilities
 ```
 
 ## 🛠 Tech Stack
@@ -318,6 +306,7 @@ Buka http://localhost:3000
 - **Dropbox SDK** - Cloud storage API
 - **Lucide Icons** - Beautiful icons
 - **Video.js** - Video player for previews
+- **Vitest** - Unit Testing Framework
 
 ## 📝 API Endpoints
 

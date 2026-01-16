@@ -1,5 +1,10 @@
 {
   "name": "multi-dropbox",
+  "version": "1.4.0",
+  "repository": {
+    "type": "git",
+    "url": "git@github.com:Prinss911/multi-dropbox---Copy.git"
+  },
   "type": "module",
   "private": true,
   "scripts": {
@@ -41,6 +46,10 @@
     "@nuxt/devtools": "^3.1.1",
     "@nuxt/eslint": "^0.7.2",
     "@types/uuid": "^10.0.0",
-    "typescript": "^5.7.2"
+    "@vue/test-utils": "^2.4.6",
+    "happy-dom": "^20.3.1",
+    "jsdom": "^27.4.0",
+    "typescript": "^5.7.2",
+    "vitest": "^4.0.17"
   }
 }

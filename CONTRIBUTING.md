@@ -26,9 +26,10 @@ Terima kasih atas minat Anda untuk berkontribusi ke MultiBox! Berikut adalah pan
 ├── pages/                 # Vue pages (file-based routing)
 ├── server/api/            # API endpoints
 ├── components/            # Vue components
-├── composables/           # Vue composables
+├── composables/           # Vue composables (Business Logic)
 ├── middleware/            # Nuxt middleware
 ├── layouts/               # Page layouts
+├── tests/                 # Unit tests (Vitest)
 ├── assets/                # Static assets
 └── server/utils/          # Server utilities
 ```
@@ -40,6 +41,7 @@ Terima kasih atas minat Anda untuk berkontribusi ke MultiBox! Berikut adalah pan
 - Ikuti Vue 3 Composition API dengan `<script setup>`
 - Gunakan Tailwind CSS untuk styling
 - Beri nama file dengan kebab-case
+- **Composables**: Ekstrak logika bisnis kompleks ke dalam `composables/`
 
 ### Commit Messages
 Gunakan format [Conventional Commits](https://www.conventionalcommits.org/):
@@ -64,15 +66,19 @@ docs: update README with new features
    git checkout -b feat/your-feature-name
    ```
 2. Buat perubahan Anda
-3. Test secara lokal
+3. **Wajib**: Jalankan tests lokal
+   ```bash
+   npm test
+   ```
 4. Commit dengan pesan yang jelas
 5. Push ke fork Anda
 6. Buat Pull Request ke repository utama
 
-### Testing
-- Test semua fitur secara manual sebelum submit PR
-- Pastikan tidak ada TypeScript errors
-- Pastikan halaman load tanpa SSR errors
+### Testing 🧪
+Kami menggunakan **Vitest** untuk unit testing.
+- Jalankan semua tests: `npm test`
+- Jalankan test spesifik: `npx vitest run tests/unit/nama-file.test.ts`
+- Pastikan coverage tidak turun drastis
 
 ## 🔒 Security Guidelines
 
@@ -99,6 +105,7 @@ export default defineEventHandler(async (event) => {
 
 ### Checklist Sebelum PR
 - [ ] Semua API endpoint sensitif memiliki `requireAdmin` atau `requireUser`
+- [ ] Unit tests telah dijalankan dan lulus (`npm test`)
 - [ ] Tidak ada hardcoded secrets di code
 - [ ] Environment variables digunakan untuk credentials
 - [ ] Input user di-validate sebelum digunakan
