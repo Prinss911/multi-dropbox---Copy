@@ -15,11 +15,21 @@ Aplikasi web modern untuk mengelola multiple akun Dropbox dengan fitur file shar
 - ✅ Browse files & folders dengan navigasi breadcrumb
 - ✅ Upload files dengan drag & drop
 - ✅ Download files (single & bulk)
-- ✅ Create folders dengan virtual folder system
+- ✅ **Virtual Folder System** - Organize files tanpa mengubah lokasi di Dropbox
+- ✅ **Drag & drop to folder** - Drag files ke folder untuk organisasi
+- ✅ **Remove from folder** - Tombol untuk mengeluarkan file dari folder
 - ✅ File preview (image, video, audio, PDF)
 - ✅ File type icons dengan colored containers
 - ✅ Robust upload dengan retry & resume
 - ✅ Wake lock untuk mencegah sleep saat upload besar
+
+### 📂 Virtual Folder System
+- ✅ **Organize locally** - Files diorganisir di aplikasi, tidak dipindahkan di Dropbox
+- ✅ **Drag & drop** - Drag file ke folder untuk memasukkan
+- ✅ **Click to open** - Klik folder untuk melihat isi
+- ✅ **Breadcrumb navigation** - "My Files" → folder name
+- ✅ **Auto-hide empty** - Folder kosong otomatis hilang
+- ✅ **Remove button** - Tombol folder-minus untuk keluarkan file
 
 ### ✨ Bulk Operations
 - ✅ Select multiple files dengan checkbox
@@ -95,8 +105,10 @@ All sensitive API endpoints are protected with role-based authorization:
 |------------------|------------|-------------|
 | `/api/accounts/*` | Admin Only | Dropbox account management |
 | `/api/admin/*` | Admin Only | Dashboard, shares, cleanup |
-| `/api/dropbox/delete` | Admin Only | File deletion operations |
+| `/api/dropbox/delete` | Admin Only | Admin file deletion (any file) |
 | `/api/dropbox/trash` | Admin Only | Trash management |
+| `/api/files/delete` | Owner | User can delete own files only |
+| `/api/files/update-folder` | Owner | Virtual folder organization |
 | `/api/shares/[id].delete` | Owner/Admin | Share link deletion |
 | `/api/user/[id].delete` | Admin Only | User deletion |
 
@@ -304,12 +316,16 @@ Buka http://localhost:3000
 - `POST /api/accounts` - Add new account
 - `DELETE /api/accounts/:id` - Delete account
 
-### Files
+### Files (User)
 - `GET /api/my-files` - List user's files
+- `POST /api/files/delete` - Delete own file (ownership verified)
+- `POST /api/files/update-folder` - Update virtual folder assignment
+
+### Files (Admin)
 - `GET /api/dropbox/all-files` - List all files (admin)
 - `POST /api/dropbox/upload` - Upload file chunk
 - `POST /api/dropbox/folder` - Create folder
-- `POST /api/dropbox/delete` - Delete file/folder
+- `POST /api/dropbox/delete` - Delete any file/folder
 - `GET /api/dropbox/download` - Get download link
 - `GET /api/dropbox/storage-all` - Get all accounts storage
 

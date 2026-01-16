@@ -58,6 +58,7 @@ export type Database = {
                     size: number | null
                     uploaded_at: string | null
                     user_id: string
+                    virtual_folder: string | null
                 }
                 Insert: {
                     content_type?: string | null
@@ -68,6 +69,7 @@ export type Database = {
                     size?: number | null
                     uploaded_at?: string | null
                     user_id: string
+                    virtual_folder?: string | null
                 }
                 Update: {
                     content_type?: string | null
@@ -78,6 +80,7 @@ export type Database = {
                     size?: number | null
                     uploaded_at?: string | null
                     user_id?: string
+                    virtual_folder?: string | null
                 }
                 Relationships: [
                     {

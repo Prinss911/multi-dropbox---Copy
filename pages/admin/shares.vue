@@ -459,9 +459,35 @@ const handleBulkCopyLinks = async () => {
   }
 }
 
-// Fetch shares
-const { data, pending, error, refresh } = await useFetch<SharesResponse>('/api/admin/shares', {
-  server: false
+// Auth fetch composable
+const { authFetch } = useAuthFetch()
+
+// Manual state management for authenticated fetch
+const data = ref<SharesResponse | null>(null)
+const pending = ref(true)
+const error = ref<Error | null>(null)
+
+// Fetch shares function with authentication
+const fetchShares = async () => {
+  pending.value = true
+  error.value = null
+  try {
+    const response = await authFetch<SharesResponse>('/api/admin/shares')
+    data.value = response
+  } catch (err: any) {
+    console.error('Failed to fetch shares:', err)
+    error.value = err
+  } finally {
+    pending.value = false
+  }
+}
+
+// Refresh function
+const refresh = () => fetchShares()
+
+// Fetch on mount
+onMounted(() => {
+  fetchShares()
 })
 
 const shares = computed(() => data.value?.shares || [])
@@ -623,14 +649,8 @@ const handleDelete = async () => {
   
   isDeleting.value = true
   try {
-    // Get current session token
-    const { data: { session } } = await supabase.auth.getSession()
-    
-    await $fetch(`/api/shares/${deleteTarget.value.id}`, {
-      method: 'DELETE',
-      headers: session?.access_token ? {
-        'Authorization': `Bearer ${session.access_token}`
-      } : {}
+    await authFetch(`/api/shares/${deleteTarget.value.id}`, {
+      method: 'DELETE'
     })
     deleteTarget.value = null
     await refresh()
@@ -646,11 +666,6 @@ const handleBulkDelete = async () => {
   
   isBulkDeleting.value = true
   try {
-    const { data: { session } } = await supabase.auth.getSession()
-    const headers = session?.access_token ? {
-      'Authorization': `Bearer ${session.access_token}`
-    } : {}
-
     // Delete all selected shares in parallel (with limit to avoid overwhelming)
     const idsToDelete = Array.from(selectedIds.value)
     const batchSize = 10
@@ -659,7 +674,7 @@ const handleBulkDelete = async () => {
       const batch = idsToDelete.slice(i, i + batchSize)
       await Promise.all(
         batch.map(id => 
-          $fetch(`/api/shares/${id}`, { method: 'DELETE', headers }).catch(err => {
+          authFetch(`/api/shares/${id}`, { method: 'DELETE' }).catch(err => {
             console.error(`Failed to delete ${id}:`, err)
           })
         )

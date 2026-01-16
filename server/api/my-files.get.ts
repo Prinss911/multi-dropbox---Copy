@@ -59,9 +59,11 @@ export default defineEventHandler(async (event) => {
             type: file.content_type === 'application/x-directory' ? 'folder' : 'file',
             extension: file.content_type === 'application/x-directory' ? null : (file.filename.split('.').pop()?.toLowerCase() || null),
             accountId: file.dropbox_account_id,
+            virtualFolder: file.virtual_folder || null,
             // Include share link if exists
             shareId: shareId || null,
             shareUrl: shareId ? `/file/${shareId}` : null
         }
     })
 })
+

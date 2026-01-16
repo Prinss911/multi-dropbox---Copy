@@ -1,5 +1,6 @@
 <template>
   <div class="h-full flex flex-col bg-background/50">
+    <ClientOnly>
     <!-- Redirect non-admin users to their files page -->
     <div v-if="!isAdmin" class="h-full flex items-center justify-center">
       <div class="flex flex-col items-center gap-3">
@@ -248,6 +249,16 @@
         </template>
       </div>
     </div>
+    
+    <template #fallback>
+      <div class="h-full flex items-center justify-center">
+        <div class="flex flex-col items-center gap-3">
+           <Icon name="lucide:loader-2" class="animate-spin h-8 w-8 text-[#0061FE]" />
+           <p class="text-sm text-muted-foreground">Loading...</p>
+        </div>
+      </div>
+    </template>
+    </ClientOnly>
   </div>
 </template>
 
@@ -256,15 +267,6 @@ const { isAdmin, role } = useAuth()
 
 // Track if we're still checking the role
 const isCheckingRole = computed(() => role.value === null)
-
-// Redirect non-admin users to files page (only on client side)
-onMounted(() => {
-  watch(role, async (newRole) => {
-    if (newRole !== null && newRole !== 'admin') {
-      await navigateTo('/drive/files', { replace: true })
-    }
-  }, { immediate: true })
-})
 
 interface DashboardData {
   accounts: {
@@ -307,20 +309,50 @@ interface DashboardData {
 // Get Supabase client for access token
 const supabase = useSupabaseClient()
 
-// Only fetch admin dashboard (non-admins are redirected)
-const { data, pending, error, refresh } = await useFetch<DashboardData>('/api/admin/dashboard', {
-  server: false,
-  async onRequest({ options }) {
-    // Get current session and add auth header
+// Dashboard data state (manual fetch to avoid SSR issues with auth)
+const data = ref<DashboardData | null>(null)
+const pending = ref(false)
+const error = ref<Error | null>(null)
+
+// Fetch dashboard only when admin
+const fetchDashboard = async () => {
+  if (!isAdmin.value) return
+  
+  pending.value = true
+  error.value = null
+  
+  try {
     const { data: { session } } = await supabase.auth.getSession()
-    if (session?.access_token) {
-      const existingHeaders = (options.headers || {}) as any
-      options.headers = {
-        ...existingHeaders,
-        Authorization: `Bearer ${session.access_token}`
-      } as any
+    if (!session?.access_token) {
+      throw new Error('Not authenticated')
     }
+    
+    const result = await $fetch<DashboardData>('/api/admin/dashboard', {
+      headers: {
+        Authorization: `Bearer ${session.access_token}`
+      }
+    })
+    data.value = result
+  } catch (err: any) {
+    console.error('Dashboard fetch error:', err)
+    error.value = err
+  } finally {
+    pending.value = false
   }
+}
+
+const refresh = () => fetchDashboard()
+
+// Only fetch when confirmed admin
+onMounted(() => {
+  watch(role, async (newRole) => {
+    if (newRole === 'admin') {
+      await fetchDashboard()
+    } else if (newRole !== null) {
+      // Redirect non-admin users
+      await navigateTo('/drive/files', { replace: true })
+    }
+  }, { immediate: true })
 })
 
 const accountColors = ['#0061FE', '#0070E0', '#007EE5', '#248CF2', '#4D9BF7', '#76ABFC']

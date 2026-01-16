@@ -14,11 +14,25 @@ export const useAuthFetch = () => {
         } = {}
     ): Promise<T> => {
         // Get current session
-        const { data: { session } } = await client.auth.getSession()
+        let { data: { session } } = await client.auth.getSession()
+
+        // If no session, try to refresh
+        if (!session?.access_token) {
+            console.log('[authFetch] No session found, attempting refresh...')
+            const { data: refreshData, error: refreshError } = await client.auth.refreshSession()
+            if (refreshError) {
+                console.error('[authFetch] Session refresh failed:', refreshError.message)
+                throw new Error('Not authenticated - please login again')
+            }
+            session = refreshData.session
+        }
 
         if (!session?.access_token) {
-            throw new Error('Not authenticated')
+            console.error('[authFetch] No access token available after refresh attempt')
+            throw new Error('Not authenticated - please login again')
         }
+
+        console.log('[authFetch] Making request to:', url, 'Method:', options.method || 'GET')
 
         // Merge headers with auth
         const headers: Record<string, string> = {
@@ -26,11 +40,19 @@ export const useAuthFetch = () => {
             'Authorization': `Bearer ${session.access_token}`
         }
 
-        return await $fetch(url, {
-            method: options.method || 'GET',
-            body: options.body,
-            headers
-        }) as T
+        try {
+            const result = await $fetch(url, {
+                method: options.method || 'GET',
+                body: options.body,
+                headers
+            }) as T
+
+            console.log('[authFetch] Request successful')
+            return result
+        } catch (err: any) {
+            console.error('[authFetch] Request failed:', err.message || err)
+            throw err
+        }
     }
 
     return { authFetch }

@@ -780,10 +780,25 @@ const closeShareModal = () => {
 
 // Handle share
 const handleShare = async () => {
-  if (!shareTarget.value) return
+  console.log('[handleShare] Called, shareTarget:', shareTarget.value)
+  if (!shareTarget.value) {
+    console.error('[handleShare] No shareTarget!')
+    return
+  }
 
   isSharing.value = true
+  console.log('[handleShare] Starting share request...')
+  
   try {
+    const requestBody = {
+      accountId: shareTarget.value.accountId,
+      filePath: shareTarget.value.path,
+      fileName: shareTarget.value.name,
+      expirationDays: selectedExpiration.value,
+      expirationUnit: selectedExpirationUnit.value
+    }
+    console.log('[handleShare] Request body:', requestBody)
+    
     const result = await authFetch<{
       success: boolean
       share: {
@@ -793,22 +808,25 @@ const handleShare = async () => {
       }
     }>('/api/shares/create', {
       method: 'POST',
-      body: {
-        accountId: shareTarget.value.accountId,
-        filePath: shareTarget.value.path,
-        fileName: shareTarget.value.name,
-        expirationDays: selectedExpiration.value,
-        expirationUnit: selectedExpirationUnit.value
-      }
+      body: requestBody
     })
 
-    shareResult.value = {
-      url: result.share.url,
-      expiresAt: result.share.expiresAt
+    console.log('[handleShare] Response:', result)
+
+    if (result?.share?.url) {
+      shareResult.value = {
+        url: result.share.url,
+        expiresAt: result.share.expiresAt
+      }
+      console.log('[handleShare] Share created successfully:', shareResult.value)
+    } else {
+      console.error('[handleShare] Invalid response structure:', result)
+      alert('Failed to create share link: Invalid response from server')
     }
   } catch (err: any) {
-    console.error('Share failed:', err)
-    alert('Failed to create share link: ' + (err.message || 'Unknown error'))
+    console.error('[handleShare] Error:', err)
+    const errorMessage = err.data?.message || err.data?.statusMessage || err.message || 'Unknown error'
+    alert('Failed to create share link: ' + errorMessage)
   } finally {
     isSharing.value = false
   }

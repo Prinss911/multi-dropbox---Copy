@@ -1,8 +1,8 @@
 <template>
   <div 
     class="h-full flex flex-col bg-background/50"
-    @dragover.prevent="isDragging = true"
-    @dragleave.prevent="isDragging = false"
+    @dragover.prevent="handleExternalDragOver"
+    @dragleave.prevent="handleExternalDragLeave"
     @drop.prevent="handleDrop"
   >
     <!-- Hidden File Input -->
@@ -16,7 +16,7 @@
     
     <!-- Drop Overlay -->
     <div 
-      v-if="isDragging"
+      v-if="isDragging && !draggedFile"
       class="fixed inset-0 z-50 bg-blue-500/10 backdrop-blur-sm flex items-center justify-center pointer-events-none"
     >
       <div class="bg-white dark:bg-card rounded-2xl p-12 shadow-2xl border-2 border-dashed border-blue-500 text-center">
@@ -92,16 +92,18 @@
 
       <!-- Breadcrumbs -->
       <nav class="flex items-center text-sm">
-        <ol class="flex items-center gap-2">
+        <ol class="flex items-center gap-1">
            <li v-for="(crumb, idx) in breadcrumbs" :key="crumb.path" class="flex items-center">
               <Icon v-if="idx > 0" name="lucide:chevron-right" class="h-4 w-4 text-muted-foreground mx-1" />
               <button 
-                @click="navigateToFolder(crumb.path)"
-                class="hover:bg-muted px-2 py-1 rounded-md transition-colors font-medium"
+                @click="handleBreadcrumbClick(crumb)"
+                class="hover:bg-muted px-2 py-1 rounded-md transition-colors font-medium flex items-center gap-1"
                 :class="idx === breadcrumbs.length - 1 ? 'text-foreground cursor-default pointer-events-none' : 'text-muted-foreground hover:text-foreground'"
               >
-                 <Icon v-if="idx === 0" name="lucide:home" class="h-4 w-4 inline mr-1 -mt-0.5" />
-                 {{ idx === 0 ? '' : crumb.name }}
+                 <Icon v-if="idx === 0" name="lucide:home" class="h-4 w-4" />
+                 <span v-if="idx === 0">My Files</span>
+                 <Icon v-else-if="crumb.isVirtual" name="lucide:folder" class="h-4 w-4 text-blue-500" />
+                 <span v-if="idx > 0">{{ crumb.name }}</span>
               </button>
            </li>
         </ol>
@@ -164,6 +166,38 @@
             >
               <Icon name="lucide:x" class="h-4 w-4" />
             </button>
+          </div>
+        </Transition>
+
+        <!-- Moving Indicator Toast -->
+        <Transition
+          enter-active-class="transition-all duration-300 ease-out"
+          leave-active-class="transition-all duration-200 ease-in"
+          enter-from-class="opacity-0 translate-y-4"
+          leave-to-class="opacity-0 translate-y-4"
+        >
+          <div 
+            v-if="isMoving" 
+            class="fixed bottom-6 left-1/2 -translate-x-1/2 z-50 flex items-center gap-3 px-5 py-3 bg-blue-600 rounded-full shadow-2xl"
+          >
+            <Icon name="lucide:loader-2" class="h-5 w-5 text-white animate-spin" />
+            <span class="text-white font-medium">Moving file...</span>
+          </div>
+        </Transition>
+
+        <!-- Drag Indicator (when dragging) -->
+        <Transition
+          enter-active-class="transition-opacity duration-200"
+          leave-active-class="transition-opacity duration-200"
+          enter-from-class="opacity-0"
+          leave-to-class="opacity-0"
+        >
+          <div 
+            v-if="draggedFile" 
+            class="fixed bottom-20 left-1/2 -translate-x-1/2 z-40 flex items-center gap-2 px-4 py-2 bg-gray-900/90 rounded-lg shadow-lg"
+          >
+            <Icon name="lucide:move" class="h-4 w-4 text-blue-400" />
+            <span class="text-white text-sm">Drop on a folder to move</span>
           </div>
         </Transition>
 
@@ -242,8 +276,18 @@
                  <tr 
                     v-for="file in paginatedFiles" 
                     :key="file.id" 
-                    class="group transition-colors"
-                    :class="selectedFiles.has(file.id) ? 'bg-blue-50 dark:bg-blue-900/20' : 'hover:bg-[#F7F9FA] dark:hover:bg-muted/20'"
+                    class="group transition-colors cursor-move"
+                    :class="[
+                       selectedFiles.has(file.id) ? 'bg-blue-50 dark:bg-blue-900/20' : 'hover:bg-[#F7F9FA] dark:hover:bg-muted/20',
+                       dropTargetId === file.id ? 'bg-blue-100 dark:bg-blue-800/30 ring-2 ring-blue-400 ring-inset' : '',
+                       draggedFile?.id === file.id ? 'opacity-50' : ''
+                    ]"
+                    :draggable="true"
+                    @dragstart="handleDragStart($event, file)"
+                    @dragend="handleDragEnd"
+                    @dragover="handleDragOver($event, file)"
+                    @dragleave="handleDragLeave"
+                    @drop="handleFileDrop($event, file)"
                  >
                     <!-- Row Checkbox -->
                     <td class="py-3 px-2">
@@ -275,7 +319,7 @@
                           </div>
                           <div class="min-w-0 pr-4">
                              <p 
-                                @click="file.type === 'folder' ? navigateToFolder(file.path) : openPreview(file)"
+                                @click="file.type === 'folder' ? handleFolderClick(file) : openPreview(file)"
                                 class="font-medium text-sm text-[#1E1919] dark:text-foreground truncate cursor-pointer hover:text-[#0061FE] transition-colors" 
                                 :title="file.name"
                              >
@@ -342,6 +386,16 @@
                              <Icon name="lucide:download" class="h-4 w-4" />
                           </button>
 
+                          <!-- Remove from folder button (only visible when file is in a virtual folder) -->
+                          <button 
+                             v-if="file.virtualFolder"
+                             @click="removeFromFolder(file)"
+                             title="Remove from folder"
+                             class="h-8 w-8 flex items-center justify-center rounded hover:bg-orange-50 hover:text-orange-600 hover:shadow-sm transition-all text-muted-foreground"
+                          >
+                             <Icon name="lucide:folder-minus" class="h-4 w-4" />
+                          </button>
+
                           <button 
                              @click="confirmDelete(file)"
                              title="Delete"
@@ -362,8 +416,19 @@
            <div 
               v-for="file in paginatedFiles" 
               :key="file.id"
-              class="group relative bg-card border rounded-[10px] p-4 flex flex-col items-center text-center transition-all duration-200 cursor-pointer"
-              :class="selectedFiles.has(file.id) ? 'bg-blue-50 dark:bg-blue-900/20 border-blue-300 dark:border-blue-700' : 'hover:bg-muted/30 border-transparent hover:border-border/50'"
+              class="group relative bg-card border rounded-[10px] p-4 flex flex-col items-center text-center transition-all duration-200"
+              :class="[
+                 selectedFiles.has(file.id) ? 'bg-blue-50 dark:bg-blue-900/20 border-blue-300 dark:border-blue-700' : 'hover:bg-muted/30 border-transparent hover:border-border/50',
+                 dropTargetId === file.id ? 'bg-blue-100 dark:bg-blue-800/30 ring-2 ring-blue-400' : '',
+                 draggedFile?.id === file.id ? 'opacity-50' : '',
+                 'cursor-move'
+              ]"
+              :draggable="true"
+              @dragstart="handleDragStart($event, file)"
+              @dragend="handleDragEnd"
+              @dragover="handleDragOver($event, file)"
+              @dragleave="handleDragLeave"
+              @drop="handleFileDrop($event, file)"
            >
               <!-- Absolute Checkbox/Selection -->
               <div 
@@ -387,6 +452,10 @@
                   <button @click.stop="openShareModal(file)" class="h-7 w-7 rounded bg-background shadow-sm border flex items-center justify-center hover:bg-blue-50 text-blue-600">
                     <Icon name="lucide:share-2" class="h-3.5 w-3.5" />
                  </button>
+                  <!-- Remove from folder (only for files in virtual folder) -->
+                  <button v-if="file.virtualFolder" @click.stop="removeFromFolder(file)" class="h-7 w-7 rounded bg-background shadow-sm border flex items-center justify-center hover:bg-orange-50 text-orange-600" title="Remove from folder">
+                    <Icon name="lucide:folder-minus" class="h-3.5 w-3.5" />
+                 </button>
                   <button @click.stop="confirmDelete(file)" class="h-7 w-7 rounded bg-background shadow-sm border flex items-center justify-center hover:bg-red-50 text-red-600">
                     <Icon name="lucide:trash-2" class="h-3.5 w-3.5" />
                  </button>
@@ -394,7 +463,7 @@
 
               <!-- Icon Preview (Clickable for preview) -->
               <div 
-                 @click="file.type === 'folder' ? navigateToFolder(file.path) : openPreview(file)"
+                 @click="file.type === 'folder' ? handleFolderClick(file) : openPreview(file)"
                  class="h-24 w-full flex items-center justify-center mb-3 cursor-pointer hover:scale-105 transition-transform"
               >
                   <!-- Colored Container for Grid View -->
@@ -416,7 +485,7 @@
               
               <!-- File Name -->
               <h4 
-                 @click="file.type === 'folder' ? navigateToFolder(file.path) : openPreview(file)"
+                 @click="file.type === 'folder' ? handleFolderClick(file) : openPreview(file)"
                  class="font-medium text-sm text-[#1E1919] dark:text-foreground w-full truncate px-1 cursor-pointer hover:text-[#0061FE] transition-colors" 
                  :title="file.name"
               >
@@ -539,24 +608,31 @@
               <div>
                  <label class="text-sm font-medium text-foreground mb-3 block">Link settings</label>
                  <div class="space-y-3">
-                     <div class="flex items-center justify-between p-3 rounded-lg border hover:border-[#0061FE] cursor-pointer bg-card transition-colors">
-                        <div class="flex items-center gap-3">
-                           <div class="p-2 bg-blue-50 rounded-full text-blue-600">
-                              <Icon name="lucide:clock" class="h-4 w-4" />
-                           </div>
-                           <div class="text-sm">
-                              <p class="font-medium">Expiration</p>
-                              <p class="text-xs text-muted-foreground">When should this link expire?</p>
-                           </div>
+                     <div class="flex items-center gap-2 mb-4 px-1">
+                        <div class="p-2 bg-blue-50 rounded-full text-blue-600">
+                           <Icon name="lucide:clock" class="h-4 w-4" />
                         </div>
-                        <select 
-                           v-model="selectedExpiration" 
-                           class="bg-transparent text-sm font-medium text-right border-none focus:ring-0 cursor-pointer text-[#0061FE] outline-none"
+                        <div>
+                           <p class="text-sm font-medium">Expiration</p>
+                           <p class="text-xs text-muted-foreground">When should this link expire?</p>
+                        </div>
+                     </div>
+
+                     <div class="grid grid-cols-2 gap-3">
+                        <button
+                           v-for="option in expirationOptions"
+                           :key="option.label"
+                           @click="selectedExpiration = option.days"
+                           :class="[
+                              'px-3 py-2.5 rounded-lg text-sm font-medium transition-all border text-left flex items-center justify-between',
+                              (selectedExpiration === option.days)
+                                 ? 'bg-blue-50 border-blue-200 text-blue-700 ring-1 ring-blue-200' 
+                                 : 'bg-card hover:bg-muted border-input text-muted-foreground hover:text-foreground'
+                           ]"
                         >
-                           <option v-for="opt in expirationOptions" :key="opt.label" :value="opt.days">
-                              {{ opt.label }}
-                           </option>
-                        </select>
+                           {{ option.label }}
+                           <Icon v-if="selectedExpiration === option.days" name="lucide:check" class="h-4 w-4" />
+                        </button>
                      </div>
                  </div>
               </div>
@@ -824,6 +900,7 @@ interface FileEntry {
   duration?: string
   shareId?: string | null
   type?: 'file' | 'folder'
+  virtualFolder?: string | null
 }
 
 // Filters
@@ -837,6 +914,115 @@ const isCreatingFolder = ref(false)
 const newFolderName = ref('')
 const folderError = ref('')
 const createFolderModalOpen = ref(false)
+
+// Virtual Folder State
+const currentVirtualFolder = ref<string | null>(null)
+
+// Drag & Drop State
+const draggedFile = ref<FileEntry | null>(null)
+const dropTargetId = ref<string | null>(null)
+const isMoving = ref(false)
+
+// Drag & Drop Handlers
+const handleDragStart = (event: DragEvent, file: FileEntry) => {
+  event.stopPropagation() // Prevent triggering parent's drag handlers
+  if (file.type === 'folder') {
+    // Allow dragging folders too
+  }
+  draggedFile.value = file
+  if (event.dataTransfer) {
+    event.dataTransfer.effectAllowed = 'move'
+    event.dataTransfer.setData('application/x-file-move', file.id) // Custom type to distinguish from file upload
+  }
+  // Add visual feedback
+  const target = event.target as HTMLElement
+  target.style.opacity = '0.5'
+}
+
+const handleDragEnd = (event: DragEvent) => {
+  draggedFile.value = null
+  dropTargetId.value = null
+  const target = event.target as HTMLElement
+  target.style.opacity = '1'
+}
+
+const handleDragOver = (event: DragEvent, file: FileEntry) => {
+  if (!draggedFile.value) return
+  if (file.type !== 'folder') return
+  if (draggedFile.value.id === file.id) return
+  
+  event.preventDefault()
+  if (event.dataTransfer) {
+    event.dataTransfer.dropEffect = 'move'
+  }
+  dropTargetId.value = file.id
+}
+
+const handleDragLeave = (_event: DragEvent) => {
+  dropTargetId.value = null
+}
+
+const handleFileDrop = async (event: DragEvent, targetFolder: FileEntry) => {
+  event.preventDefault()
+  dropTargetId.value = null
+  
+  if (!draggedFile.value) return
+  if (targetFolder.type !== 'folder') return
+  if (draggedFile.value.id === targetFolder.id) return
+  
+  // Prevent moving folder into itself
+  if (targetFolder.path.startsWith(draggedFile.value.path + '/')) {
+    alert('Cannot move a folder into itself')
+    draggedFile.value = null
+    return
+  }
+  
+  await moveFile(draggedFile.value, targetFolder)
+  draggedFile.value = null
+}
+
+// Move file function (local database mapping only - not Dropbox)
+const moveFile = async (file: FileEntry, targetFolder: FileEntry) => {
+  isMoving.value = true
+  
+  try {
+    const { data: { session } } = await supabase.auth.getSession()
+    
+    // Determine the new virtual folder path
+    const newVirtualFolder = targetFolder.path === '/' 
+      ? null // Root folder = no virtual folder
+      : targetFolder.name // Use folder name as virtual folder
+    
+    console.log('[Move] Organizing file:', {
+      fileId: file.id,
+      fileName: file.name,
+      targetFolder: newVirtualFolder
+    })
+    
+    await $fetch('/api/files/update-folder', {
+      method: 'POST',
+      body: {
+        fileId: file.id,
+        virtualFolder: newVirtualFolder
+      },
+      headers: session?.access_token 
+        ? { Authorization: `Bearer ${session.access_token}` } 
+        : undefined
+    })
+    
+    // Show success message
+    console.log(`[Move] Success: "${file.name}" -> "${targetFolder.name}"`)
+    
+    // Refresh file list
+    await refresh()
+    
+  } catch (err: any) {
+    console.error('[Move] Failed:', err)
+    alert('Failed to organize file: ' + (err.data?.statusMessage || err.message || 'Unknown error'))
+  } finally {
+    isMoving.value = false
+  }
+}
 
 // Bulk Selection State
 const selectedFiles = ref<Set<string>>(new Set())
@@ -900,19 +1086,20 @@ const handleBulkDelete = async () => {
   
   try {
     const { data: { session } } = await supabase.auth.getSession()
-    const headers = session?.access_token ? { Authorization: `Bearer ${session.access_token}` } : {}
+    const headers: Record<string, string> = session?.access_token 
+      ? { Authorization: `Bearer ${session.access_token}` } 
+      : {}
     
     // Get selected file objects
     const filesToDelete = files.value.filter(f => selectedFiles.value.has(f.id))
     
-    // Delete files in parallel (with limit)
+    // Delete files in parallel using user-safe endpoint
     const results = await Promise.allSettled(
       filesToDelete.map(file => 
-        $fetch('/api/dropbox/delete', {
+        $fetch('/api/files/delete', {
           method: 'POST',
           body: {
-            path: file.path,
-            accountId: file.accountId
+            fileId: file.id
           },
           headers
         })
@@ -945,7 +1132,9 @@ const handleBulkDownload = async () => {
   
   try {
     const { data: { session } } = await supabase.auth.getSession()
-    const headers = session?.access_token ? { Authorization: `Bearer ${session.access_token}` } : {}
+    const headers: Record<string, string> = session?.access_token 
+      ? { Authorization: `Bearer ${session.access_token}` } 
+      : {}
     
     // Get selected file objects
     const filesToDownload = files.value.filter(f => selectedFiles.value.has(f.id))
@@ -998,13 +1187,25 @@ const handleBulkDownload = async () => {
 
 // Breadcrumbs
 const breadcrumbs = computed(() => {
+  const crumbs = [{ name: 'Home', path: '/', isVirtual: false }]
+  
+  // If in a virtual folder, show it in breadcrumbs
+  if (currentVirtualFolder.value) {
+    crumbs.push({ 
+      name: currentVirtualFolder.value, 
+      path: `/virtual/${currentVirtualFolder.value}`,
+      isVirtual: true 
+    })
+    return crumbs
+  }
+  
+  // Otherwise show path-based breadcrumbs
   const parts = currentPath.value.split('/').filter(p => p)
-  const crumbs = [{ name: 'Home', path: '/' }]
   let current = '/'
   
   parts.forEach(part => {
     current = current === '/' ? `/${part}` : `${current}/${part}`
-    crumbs.push({ name: part, path: current })
+    crumbs.push({ name: part, path: current, isVirtual: false })
   })
   
   return crumbs
@@ -1015,49 +1216,136 @@ const navigateToFolder = (path: string) => {
   currentPath.value = path
 }
 
+// Handle breadcrumb click
+const handleBreadcrumbClick = (crumb: { path: string; isVirtual: boolean }) => {
+  if (crumb.path === '/') {
+    // Go to root - clear virtual folder and reset path
+    currentVirtualFolder.value = null
+    currentPath.value = '/'
+  } else if (!crumb.isVirtual) {
+    // Regular folder navigation
+    currentVirtualFolder.value = null
+    navigateToFolder(crumb.path)
+  }
+  // If it's virtual folder (current location), do nothing
+}
+
+// Remove file from virtual folder (move back to root)
+const removeFromFolder = async (file: FileEntry) => {
+  if (!file.virtualFolder) return
+  
+  isMoving.value = true
+  try {
+    const { data: { session } } = await supabase.auth.getSession()
+    
+    await $fetch('/api/files/update-folder', {
+      method: 'POST',
+      body: {
+        fileId: file.id,
+        virtualFolder: null // Remove from folder
+      },
+      headers: session?.access_token 
+        ? { Authorization: `Bearer ${session.access_token}` } 
+        : undefined
+    })
+    
+    console.log(`[Move] Removed "${file.name}" from folder`)
+    await refresh()
+    
+  } catch (err: any) {
+    console.error('[Move] Failed to remove from folder:', err)
+    alert('Failed to remove from folder: ' + (err.data?.statusMessage || err.message || 'Unknown error'))
+  } finally {
+    isMoving.value = false
+  }
+}
+
 const navigateUp = () => {
+  // First check if we're in a virtual folder
+  if (currentVirtualFolder.value) {
+    currentVirtualFolder.value = null
+    return
+  }
+  
   if (currentPath.value === '/') return
   const parts = currentPath.value.split('/')
   parts.pop()
   currentPath.value = parts.join('/') || '/'
 }
 
-// Filtered Files based on Current Path (Virtual Folder System)
+// Navigate to virtual folder
+const navigateToVirtualFolder = (folderName: string) => {
+  currentVirtualFolder.value = folderName
+}
+
+// Handle folder click - determines if it's a virtual or regular folder
+const handleFolderClick = (file: any) => {
+  if (file.isVirtual) {
+    // Virtual folder - navigate to virtual folder view
+    navigateToVirtualFolder(file.name)
+  } else {
+    // Regular Dropbox folder - navigate to path
+    navigateToFolder(file.path)
+  }
+}
+
+// Get unique virtual folders from files
+const virtualFolders = computed(() => {
+  if (!data.value) return []
+  
+  const folders = new Set<string>()
+  data.value.forEach(file => {
+    if (file.virtualFolder) {
+      folders.add(file.virtualFolder)
+    }
+  })
+  
+  return Array.from(folders).map(name => ({
+    id: `vf-${name}`,
+    name: name,
+    path: `/virtual/${name}`,
+    size: 0,
+    modified: new Date().toISOString(),
+    extension: null,
+    accountId: '',
+    type: 'folder' as const,
+    isVirtual: true,
+    fileCount: data.value?.filter(f => f.virtualFolder === name).length || 0
+  }))
+})
+
+// Filtered Files based on Current Path and Virtual Folder
 const filteredFiles = computed(() => {
   if (!data.value) return []
   
-  const path = currentPath.value
-  
-  // For root path ('/'), show all files that are either:
-  // 1. Direct children of root (e.g., /file.txt)
-  // 2. In /uploads folder (legacy structure)
-  // 3. Folders at root level
-  
-  if (path === '/') {
-    // At root, show everything for now (flat view)
-    // Files in /uploads/ are treated as root-level files
-    // Folders created by user will show as navigable folders
-    return data.value.filter(file => {
-      // Show folders that are direct children of root
-      if (file.type === 'folder') {
-        const slashCount = (file.path.match(/\//g) || []).length
-        return slashCount === 1 // e.g., /FolderName
-      }
-      
-      // Show all files (legacy /uploads/ files and any root files)
-      // Eventually we can filter by parent folder when fully implementing virtual folders
-      return true
-    })
+  // If in a virtual folder, show only files in that folder
+  if (currentVirtualFolder.value) {
+    return data.value.filter(file => 
+      file.virtualFolder === currentVirtualFolder.value
+    )
   }
   
-  // For subfolders, show direct children only
-  return data.value.filter(file => {
-    // Must start with currentPath/
-    if (!file.path.startsWith(path + '/')) return false
+  const path = currentPath.value
+  
+  // At root level, show:
+  // 1. Virtual folders as clickable folders
+  // 2. Files without virtual folder (or all files)
+  if (path === '/') {
+    // Get files WITHOUT a virtual folder (not organized yet)
+    const unorganizedFiles = data.value.filter(file => !file.virtualFolder)
     
-    // Check it's a direct child (only one more path segment)
-    const subPath = file.path.substring(path.length + 1) // +1 to skip the /
-    return !subPath.includes('/') // No more slashes = direct child
+    // Convert virtual folders to folder entries for display
+    const vFolders = virtualFolders.value as any[]
+    
+    // Combine virtual folders + unorganized files
+    return [...vFolders, ...unorganizedFiles]
+  }
+  
+  // For Dropbox subfolders, show direct children only
+  return data.value.filter(file => {
+    if (!file.path.startsWith(path + '/')) return false
+    const subPath = file.path.substring(path.length + 1)
+    return !subPath.includes('/')
   })
 })
 
@@ -1216,9 +1504,33 @@ onUnmounted(() => {
   releaseWakeLock()
 })
 
+// Handle external drag over (for file upload from outside browser)
+const handleExternalDragOver = (e: DragEvent) => {
+  // Only show upload overlay if not doing internal drag (moving files)
+  if (!draggedFile.value) {
+    // Check if dragging files from outside (has files in dataTransfer)
+    if (e.dataTransfer?.types.includes('Files')) {
+      isDragging.value = true
+    }
+  }
+}
+
+// Handle external drag leave
+const handleExternalDragLeave = (_e: DragEvent) => {
+  if (!draggedFile.value) {
+    isDragging.value = false
+  }
+}
+
 // Handle file drop
 const handleDrop = (e: DragEvent) => {
   isDragging.value = false
+  
+  // If internal drag (moving files), don't process as upload
+  if (draggedFile.value) {
+    return
+  }
+  
   const droppedFiles = e.dataTransfer?.files
   if (droppedFiles && droppedFiles.length > 0) {
     processUpload(Array.from(droppedFiles))
@@ -1798,24 +2110,46 @@ const deleteTarget = ref<FileEntry | null>(null)
 const isDeleting = ref(false)
 
 // Confirm delete
-const confirmDelete = (file: FileEntry) => {
+const confirmDelete = (file: any) => {
+  // Check if it's a virtual folder
+  if (file.isVirtual || file.id?.startsWith('vf-')) {
+    alert('Virtual folders cannot be deleted directly. Remove files from the folder to make it disappear.')
+    return
+  }
   deleteTarget.value = file
 }
 
 // Handle delete
 const handleDelete = async () => {
   if (!deleteTarget.value) return
+  
+  // Double check it's not a virtual folder (by flag or ID pattern)
+  const target = deleteTarget.value as any
+  if (target.isVirtual || target.id?.startsWith('vf-')) {
+    alert('Cannot delete virtual folders')
+    deleteTarget.value = null
+    return
+  }
+  
+  console.log('[Delete] Deleting file:', {
+    id: target.id,
+    name: target.name,
+    isVirtual: target.isVirtual
+  })
 
   isDeleting.value = true
   try {
     const { data: { session } } = await supabase.auth.getSession()
-    await $fetch('/api/dropbox/delete', {
+    
+    // Use user-safe delete endpoint (verifies file ownership)
+    await $fetch('/api/files/delete', {
       method: 'POST',
       body: {
-        path: deleteTarget.value.path,
-        accountId: deleteTarget.value.accountId
+        fileId: deleteTarget.value.id
       },
-      headers: session?.access_token ? { Authorization: `Bearer ${session.access_token}` } : {}
+      headers: session?.access_token 
+        ? { Authorization: `Bearer ${session.access_token}` } 
+        : undefined
     })
 
     // Remove from local list
@@ -1823,7 +2157,7 @@ const handleDelete = async () => {
     deleteTarget.value = null
   } catch (err: any) {
     console.error('Delete failed:', err)
-    alert('Failed to delete file: ' + (err.data?.message || err.message || 'Unknown error'))
+    alert('Failed to delete file: ' + (err.data?.statusMessage || err.message || 'Unknown error'))
   } finally {
     isDeleting.value = false
   }

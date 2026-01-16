@@ -2,6 +2,55 @@
 
 All notable changes to this project will be documented in this file.
 
+## [1.2.0] - 2026-01-16
+
+### Added
+
+#### Virtual Folder System (Local Organization)
+- **Virtual folders** - Organize files into folders without moving them in Dropbox
+- **Database column `virtual_folder`** - Added to `files` table for local organization
+- **Drag & drop to folder** - Drag files onto folders to organize them
+- **Remove from folder** - Button to move files back to root (folder-minus icon)
+- **Click to open folder** - Click virtual folder to see files inside
+- **Breadcrumb navigation** - "My Files" → folder name path with proper Home icon
+- **Auto-hide empty folders** - Virtual folders disappear when no files are assigned
+
+#### User File Management
+- **User delete endpoint** - `/api/files/delete` allows users to delete their own files only
+- **Ownership verification** - Backend verifies file belongs to user before deletion
+- **Bulk delete for users** - Users can delete multiple files at once
+
+### Security 🔒
+- **User-safe delete** - New `/api/files/delete` endpoint verifies file ownership
+- **UUID validation** - Validates file IDs to prevent virtual folder deletion attempts
+- **Admin-only delete preserved** - `/api/dropbox/delete` remains admin-only for all files
+
+### Fixed
+
+#### Authorization
+- **403 errors for non-admin users** - Fixed layout calling admin-only APIs for all users
+- **fetchAccounts admin-gated** - Only admins call `/api/accounts` and `/api/admin/dashboard`
+- **Conditional data loading** - Dashboard and storage info only fetched for admins
+
+#### Hydration
+- **Dashboard hydration mismatch** - Wrapped admin dashboard content in `<ClientOnly>`
+- **Consistent SSR/CSR rendering** - Added fallback loading states
+
+#### File Operations
+- **Invalid account ID handling** - Gracefully handles files with corrupt dropbox_account_id
+- **Virtual folder delete prevention** - Cannot delete virtual folders (only files)
+- **Grid view folder click** - Fixed to use `handleFolderClick` for virtual folders
+
+#### UI/UX
+- **Breadcrumb "My Files"** - Always shows Home icon + "My Files" label
+- **Breadcrumb navigation** - Click Home to return to root from virtual folder
+- **Remove from folder button** - Orange folder-minus icon in actions (list & grid view)
+
+### Changed
+- **Move file logic** - Now updates `virtual_folder` in database instead of Dropbox API
+- **File list filtering** - Shows virtual folders + unorganized files at root
+- **Drag & drop handlers** - Separate internal (file move) vs external (file upload) drag
+
 ## [1.1.0] - 2026-01-16
 
 ### Added
@@ -65,54 +114,6 @@ All notable changes to this project will be documented in this file.
 - Updated `getAccountColor` function in shares.vue to accept optional second parameter
 
 ---
-
-## [Unreleased]
-
-### Added
-
-#### Floating Bulk Action Bar
-- Modern floating action bar yang muncul di bagian bawah layar saat ada item terseleksi
-- Tombol Download, Delete, Copy Links dengan ikon
-- Selection count badge dengan warna biru
-- Clear selection button (X)
-- Smooth slide-up/down animation
-- Diterapkan di semua halaman: `/drive/files`, `/admin/files`, `/admin/shares`
-
-#### Bulk Operations
-- Select multiple files dengan checkbox di setiap baris
-- Select All / Deselect All di header table
-- Bulk Delete - Hapus banyak file sekaligus dengan konfirmasi
-- Bulk Download - Download banyak file satu per satu
-- Bulk Copy Links - Copy semua URL share ke clipboard (admin shares)
-- Visual feedback (highlight biru) saat file terseleksi
-
-#### Virtual Folder System
-- Create folders dengan tombol "New Folder"
-- Breadcrumb navigation untuk navigasi folder
-- Navigate ke folder dengan klik nama folder
-- Files diorganisir dalam struktur virtual folder
-
-#### File Icons with Colored Containers
-- Setiap tipe file memiliki container berwarna
-- Warna konsisten: PDF (red), Docs (blue), Spreadsheet (green), Images (purple), Videos (pink), Audio (indigo), Archives (amber)
-- Folder dengan ikon dan warna biru khusus
-
-#### Robust Upload System
-- Retry otomatis saat gagal upload
-- Network-aware: pause saat offline, resume saat online
-- Wake lock untuk mencegah device sleep saat upload besar
-- Progress tracking per-file dengan status icons
-
-### Changed
-- Upgraded icon rendering ke container-based system untuk visual yang lebih premium
-- Removed old bulk action buttons dari header (diganti Floating Action Bar)
-- Improved file filtering logic untuk virtual folder navigation
-- Renamed internal `navigateTo` function ke `navigateToFolder` untuk menghindari konflik dengan Nuxt
-
-### Fixed
-- Fixed SSR error "navigator is undefined" dengan menginisialisasi `isOnline` ke `true` dan update di `onMounted`
-- Fixed file tidak muncul di root karena filter terlalu ketat
-- Fixed TypeScript type errors pada headers authorization
 
 ## [1.0.0] - 2026-01-15
 

@@ -415,15 +415,22 @@ const formatBytes = (bytes: number): string => {
   return parseFloat((bytes / Math.pow(k, i)).toFixed(1)) + ' ' + sizes[i]
 }
 
-// Fetch accounts and storage on mount
+// Fetch accounts and storage on mount (admin only)
 onMounted(() => {
-  fetchAccounts()
-  fetchStorageInfo()
+  // Wait for role check then fetch if admin
+  watch(isAdmin, (admin) => {
+    if (admin) {
+      fetchAccounts()
+      fetchStorageInfo()
+    }
+  }, { immediate: true })
 })
 
-// Refetch storage when accounts change (add/remove)
+// Refetch storage when accounts change (add/remove) - admin only
 watch(accounts, () => {
-  fetchStorageInfo()
+  if (isAdmin.value) {
+    fetchStorageInfo()
+  }
 }, { deep: true })
 
 // Runtime config for default App Key
