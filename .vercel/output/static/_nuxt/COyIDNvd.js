@@ -1,1 +1,0 @@
-import{E as o,c as t,o as s,G as c}from"./D0_loxAU.js";const r={},n={class:"fixed inset-0 overflow-auto bg-background"};function a(e,d){return s(),t("div",n,[c(e.$slots,"default")])}const l=o(r,[["render",a]]);export{l as default};

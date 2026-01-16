@@ -1,1 +1,0 @@
-{"version":3,"file":"index.mjs","sources":["../../../../../../node_modules/@vueuse/shared/index.mjs","../../../../../../node_modules/@vueuse/core/index.mjs"],"names":["getCurrentScope","onScopeDispose","shallowRef","toValue$1","readonly","computed","watch","toValue","unref","getCurrentInstance","onMounted","ref","nextTick"],"mappings":"","x_google_ignoreList":[0,1]}

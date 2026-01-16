@@ -1,1 +1,0 @@
-import{d as t,A as a,c as o,a as s,o as r}from"./D0_loxAU.js";const n={class:"min-h-screen flex items-center justify-center"},p=t({__name:"upload",setup(c){return a("/drive/upload",{replace:!0}),(d,e)=>(r(),o("div",n,[...e[0]||(e[0]=[s("div",{class:"text-muted-foreground"},"Redirecting to upload page...",-1)])]))}});export{p as default};
