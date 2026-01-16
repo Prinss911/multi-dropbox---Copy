@@ -34,7 +34,9 @@ export const useAccounts = () => {
     const fetchAccounts = async () => {
         isLoading.value = true
         try {
-            const response = await $fetch<{
+            // Use authFetch for authenticated request
+            const { authFetch } = useAuthFetch()
+            const response = await authFetch<{
                 accounts: AccountInfo[]
                 activeAccountId: string
             }>('/api/accounts')
@@ -81,7 +83,8 @@ export const useAccounts = () => {
 
         // Background sync to DB (for cross-device persistence)
         try {
-            await $fetch('/api/accounts/switch', {
+            const { authFetch } = useAuthFetch()
+            await authFetch('/api/accounts/switch', {
                 method: 'POST',
                 body: { accountId }
             })
@@ -100,7 +103,8 @@ export const useAccounts = () => {
     const addAccount = async (code: string, appKey: string, appSecret: string, name?: string) => {
         isAddingAccount.value = true
         try {
-            const response = await $fetch<{
+            const { authFetch } = useAuthFetch()
+            const response = await authFetch<{
                 success: boolean
                 account: AccountInfo
             }>('/api/accounts/add', {
@@ -131,7 +135,8 @@ export const useAccounts = () => {
 
     const removeAccount = async (accountId: string) => {
         try {
-            await $fetch('/api/accounts/delete', {
+            const { authFetch } = useAuthFetch()
+            await authFetch('/api/accounts/delete', {
                 method: 'POST',
                 body: { accountId }
             })

@@ -609,9 +609,35 @@ const sortBy = ref('modified')
 const currentPage = ref(1)
 const pageSize = 50
 
-// Fetch files
-const { data, pending, error, refresh } = await useFetch<AllFilesResponse>('/api/dropbox/all-files', {
-  server: false
+// Auth fetch composable
+const { authFetch } = useAuthFetch()
+
+// Manual state management for authenticated fetch
+const data = ref<AllFilesResponse | null>(null)
+const pending = ref(true)
+const error = ref<Error | null>(null)
+
+// Fetch files function with authentication
+const fetchFiles = async () => {
+  pending.value = true
+  error.value = null
+  try {
+    const response = await authFetch<AllFilesResponse>('/api/dropbox/all-files')
+    data.value = response
+  } catch (err: any) {
+    console.error('Failed to fetch files:', err)
+    error.value = err
+  } finally {
+    pending.value = false
+  }
+}
+
+// Refresh function
+const refresh = () => fetchFiles()
+
+// Fetch on mount
+onMounted(() => {
+  fetchFiles()
 })
 
 const files = computed(() => data.value?.files || [])
@@ -713,10 +739,8 @@ const getFolder = (path: string): string => {
 // Actions
 const handleDownload = async (file: FileEntry) => {
   try {
-    const { link } = await $fetch<{ link: string }>('/api/dropbox/download', {
-      query: { path: file.path, accountId: file.accountId }
-    })
-    window.open(link, '_blank')
+    const response = await authFetch<{ link: string }>(`/api/dropbox/download?path=${encodeURIComponent(file.path)}&accountId=${encodeURIComponent(file.accountId)}`)
+    window.open(response.link, '_blank')
   } catch (err: any) {
     alert('Download failed: ' + err.message)
   }
@@ -760,7 +784,7 @@ const handleShare = async () => {
 
   isSharing.value = true
   try {
-    const result = await $fetch<{
+    const result = await authFetch<{
       success: boolean
       share: {
         id: string
@@ -892,7 +916,7 @@ const handleDelete = async () => {
 
   isDeleting.value = true
   try {
-    await $fetch('/api/dropbox/delete', {
+    await authFetch('/api/dropbox/delete', {
       method: 'POST',
       body: {
         path: deleteTarget.value.path,
@@ -923,12 +947,7 @@ const openPreview = async (file: FileEntry) => {
   isLoadingPreview.value = true
 
   try {
-    const response = await $fetch<{ link: string }>('/api/dropbox/download', {
-      query: { 
-        path: file.path, 
-        accountId: file.accountId 
-      }
-    })
+    const response = await authFetch<{ link: string }>(`/api/dropbox/download?path=${encodeURIComponent(file.path)}&accountId=${encodeURIComponent(file.accountId)}`)
     previewUrl.value = response.link
   } catch (err: any) {
     console.error('Failed to get preview URL:', err)
@@ -975,7 +994,7 @@ const handleBulkDelete = async () => {
     const file = files.value.find(f => f.id === id)
     if (file) {
       try {
-        await $fetch('/api/dropbox/delete', {
+        await authFetch('/api/dropbox/delete', {
           method: 'POST',
           body: { path: file.path, accountId: file.accountId }
         })
@@ -1010,17 +1029,13 @@ const handleBulkDownload = async () => {
     if (filesToDownload.length === 1) {
       // Single file - direct download
       const file = filesToDownload[0]
-      const response = await $fetch<{ link: string }>('/api/dropbox/download', {
-        query: { path: file.path, accountId: file.accountId }
-      })
+      const response = await authFetch<{ link: string }>(`/api/dropbox/download?path=${encodeURIComponent(file.path)}&accountId=${encodeURIComponent(file.accountId)}`)
       window.open(response.link, '_blank')
     } else {
       // Multiple files - download each
       for (const file of filesToDownload) {
         try {
-          const response = await $fetch<{ link: string }>('/api/dropbox/download', {
-            query: { path: file.path, accountId: file.accountId }
-          })
+          const response = await authFetch<{ link: string }>(`/api/dropbox/download?path=${encodeURIComponent(file.path)}&accountId=${encodeURIComponent(file.accountId)}`)
           // Create download link
           const link = document.createElement('a')
           link.href = response.link
