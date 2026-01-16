@@ -37,11 +37,13 @@ export default defineNuxtRouteMiddleware(async (to, from) => {
             return navigateTo('/login')
         }
 
-        // Fetch role if not already loaded
-        if (!role.value) {
-            console.log('[Middleware] Fetching role for admin check...')
-            await fetchRole()
-        }
+        // Always fetch role fresh for admin routes to ensure it's loaded
+        // This prevents redirect issues when refreshing admin pages
+        console.log('[Middleware] Fetching role for admin check...')
+        await fetchRole()
+
+        // Wait a tick to ensure state is updated
+        await new Promise(resolve => setTimeout(resolve, 50))
 
         console.log('[Middleware] Admin route check. Role:', role.value, 'isAdmin:', isAdmin.value)
 

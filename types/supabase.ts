@@ -172,11 +172,13 @@ export type Database = {
                     file_id: string
                     file_name: string
                     file_path: string
+                    files: Json | null
                     id: string
                     is_active: boolean | null
                     last_accessed_at: string | null
                     password_hash: string | null
                     share_link: string
+                    user_id: string | null
                     video_metadata: Json | null
                     view_count: number | null
                 }
@@ -189,11 +191,13 @@ export type Database = {
                     file_id: string
                     file_name: string
                     file_path: string
+                    files?: Json | null
                     id?: string
                     is_active?: boolean | null
                     last_accessed_at?: string | null
                     password_hash?: string | null
                     share_link: string
+                    user_id?: string | null
                     video_metadata?: Json | null
                     view_count?: number | null
                 }
@@ -206,11 +210,13 @@ export type Database = {
                     file_id?: string
                     file_name?: string
                     file_path?: string
+                    files?: Json | null
                     id?: string
                     is_active?: boolean | null
                     last_accessed_at?: string | null
                     password_hash?: string | null
                     share_link?: string
+                    user_id?: string | null
                     video_metadata?: Json | null
                     view_count?: number | null
                 }

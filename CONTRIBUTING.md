@@ -74,6 +74,28 @@ docs: update README with new features
 - Pastikan tidak ada TypeScript errors
 - Pastikan halaman load tanpa SSR errors
 
+## 🔧 Common Issues
+
+### Development Warnings
+- **`/_nuxt/` route warnings** - Normal Vite behavior, ignore
+- **`Symbol(route location)` warnings** - HMR related, ignore
+- **Hydration mismatches** - Wrap dynamic auth-dependent content in `<ClientOnly>`
+
+### Auth Issues
+- **Redirect to login on refresh** - Check `waitForAuthInit()` is awaited in middleware
+- **Role not detected** - Ensure `fetchRole()` completes before admin checks
+
+### Quick Fixes
+```bash
+# Clear cache and rebuild
+rm -rf .nuxt node_modules/.cache
+npx nuxi prepare
+
+# Reinstall dependencies
+rm -rf node_modules package-lock.json
+npm install
+```
+
 ## 🐛 Reporting Bugs
 
 Saat melaporkan bug, sertakan:

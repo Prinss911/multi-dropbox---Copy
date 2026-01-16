@@ -199,14 +199,14 @@
                 </td>
                 <td class="py-3 px-4 hidden sm:table-cell">
                    <span 
-                       class="inline-flex items-center gap-1.5 px-2 py-0.5 rounded text-xs font-medium"
+                       class="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-medium whitespace-nowrap"
                        :style="{ 
-                          backgroundColor: getAccountColor(share.accountId) + '15', 
-                          color: getAccountColor(share.accountId)
+                          backgroundColor: getAccountColor(share.accountId, share.accountName) + '15', 
+                          color: getAccountColor(share.accountId, share.accountName)
                        }"
                     >
-                       <span class="w-1.5 h-1.5 rounded-full" :style="{ backgroundColor: getAccountColor(share.accountId) }"></span>
-                       {{ share.accountName }}
+                       <span class="w-1.5 h-1.5 rounded-full shrink-0" :style="{ backgroundColor: getAccountColor(share.accountId, share.accountName) }"></span>
+                       <span class="truncate max-w-[120px]">{{ share.accountName }}</span>
                     </span>
                 </td>
                 <td class="py-3 px-4 text-sm text-muted-foreground hidden md:table-cell">
@@ -585,7 +585,7 @@ const getIconColor = (ext: string): string => {
 }
 
 const accountColors = ['#0061FE', '#0070E0', '#007EE5', '#248CF2', '#4D9BF7', '#76ABFC']
-const getAccountColor = (accountId: string): string => {
+const getAccountColor = (accountId: string, _accountName?: string): string => {
   const index = accounts.value.findIndex(a => a.id === accountId)
   return accountColors[index % accountColors.length]
 }

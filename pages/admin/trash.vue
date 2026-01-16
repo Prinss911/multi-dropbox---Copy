@@ -11,6 +11,10 @@
           <p class="text-sm text-muted-foreground">
             {{ selectedIds.size > 0 ? `${selectedIds.size} selected` : 'Deleted files are automatically removed after 30 days' }}
           </p>
+          <p class="text-xs text-amber-600 dark:text-amber-400 mt-1">
+            <Icon name="lucide:info" class="h-3 w-3 inline mr-1" />
+            Personal accounts: Permanent delete via API not supported. Use Dropbox.com to empty trash immediately.
+          </p>
         </div>
       </div>
       

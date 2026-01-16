@@ -69,7 +69,7 @@
                           </div>
                           <div class="min-w-0">
                              <p class="font-medium text-sm text-[#1E1919] dark:text-foreground truncate">
-                                {{ user.name || 'Pending Invite' }}
+                                {{ user.name || (user.status === 'Invited' ? 'Pending Invite' : user.email.split('@')[0]) }}
                              </p>
                              <p class="text-xs text-muted-foreground truncate">{{ user.email }}</p>
                           </div>

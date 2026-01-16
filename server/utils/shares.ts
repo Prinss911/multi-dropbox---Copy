@@ -42,7 +42,8 @@ export async function createShare(data: Omit<ShareLink, 'id' | 'createdAt' | 'do
         account_name: data.accountName,
         expires_at: data.expiresAt,
         download_count: 0,
-        user_id: data.userId || null
+        user_id: data.userId || null,
+        share_link: `/file/${id}` // Required field - relative URL
     }
 
     const { error } = await supabase

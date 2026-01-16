@@ -2,8 +2,26 @@ import type { files } from 'dropbox'
 
 export default defineEventHandler(async (event) => {
     try {
-        const { getActiveClient } = useDropboxServer()
-        const { client: dbx, account } = await getActiveClient()
+        const query = getQuery(event)
+        const accountId = query.accountId as string | undefined
+
+        const { getActiveClient, getClientForAccount } = useDropboxServer()
+
+        let dbx, account
+
+        if (accountId) {
+            // Use specific account if provided
+            dbx = await getClientForAccount(accountId)
+            // Get account info
+            const { getAccounts } = await import('../../utils/accounts')
+            const accounts = await getAccounts()
+            account = accounts.find(a => a.id === accountId) || { id: accountId, name: 'Unknown' }
+        } else {
+            // Fall back to active account
+            const result = await getActiveClient()
+            dbx = result.client
+            account = result.account
+        }
 
         // List all files including deleted
         const response = await dbx.filesListFolder({
@@ -43,8 +61,8 @@ export default defineEventHandler(async (event) => {
                         daysRemaining = Math.max(0, Math.ceil(msRemaining / (24 * 60 * 60 * 1000)))
                     }
                 } catch (err) {
-                    // Revisions might not be available for all files
-                    console.log('Could not get revisions for:', deletedEntry.name)
+                    // Revisions might not be available for all files (e.g. folders, batch files)
+                    // This is expected behavior, no need to log
                 }
 
                 return {
@@ -60,8 +78,13 @@ export default defineEventHandler(async (event) => {
             })
         )
 
+        // Filter out entries that are already expired (no longer recoverable)
+        const recoverableEntries = entriesWithDates.filter(entry =>
+            entry.daysRemaining === null || entry.daysRemaining > 0
+        )
+
         return {
-            entries: entriesWithDates,
+            entries: recoverableEntries,
             accountId: account.id,
             accountName: account.name
         }

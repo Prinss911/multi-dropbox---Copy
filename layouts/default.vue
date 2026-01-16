@@ -24,6 +24,7 @@
       <!-- Navigation (scrollable) -->
       <div class="flex-1 py-4 px-3 space-y-1 overflow-auto min-h-0">
          <div class="px-2 mb-2 text-xs font-semibold text-muted-foreground tracking-wider uppercase">Menu</div>
+         <ClientOnly>
          <nav class="space-y-1">
             <!-- Admin Dashboard Link -->
             <NuxtLink 
@@ -96,7 +97,22 @@
             </NuxtLink>
             </template>
           </nav>
+          <template #fallback>
+            <!-- Skeleton loader for navigation -->
+            <nav class="space-y-1">
+              <div class="flex items-center gap-3 px-3 py-2 rounded-md">
+                <div class="h-4 w-4 bg-muted rounded animate-pulse"></div>
+                <div class="h-4 w-20 bg-muted rounded animate-pulse"></div>
+              </div>
+              <div class="flex items-center gap-3 px-3 py-2 rounded-md">
+                <div class="h-4 w-4 bg-muted rounded animate-pulse"></div>
+                <div class="h-4 w-24 bg-muted rounded animate-pulse"></div>
+              </div>
+            </nav>
+          </template>
+          </ClientOnly>
           
+          <ClientOnly>
           <div v-if="isAdmin">
            <div class="px-2 mt-4 mb-2 text-xs font-semibold text-muted-foreground tracking-wider uppercase">Management</div>
            <nav class="space-y-1">
@@ -122,10 +138,12 @@
              </NuxtLink>
            </nav>
           </div>
+          </ClientOnly>
       </div>
       
       <!-- User Profile & Logout -->
       <div class="p-3 border-t">
+        <ClientOnly>
         <div class="flex items-center gap-3 mb-3">
           <div class="h-8 w-8 rounded-full bg-gradient-to-br from-primary to-primary/60 flex items-center justify-center text-primary-foreground font-bold text-sm">
             {{ user?.email?.charAt(0).toUpperCase() || 'U' }}
@@ -135,6 +153,16 @@
             <p class="text-xs text-muted-foreground">{{ isAdmin ? 'Administrator' : 'User' }}</p>
           </div>
         </div>
+        <template #fallback>
+          <div class="flex items-center gap-3 mb-3">
+            <div class="h-8 w-8 rounded-full bg-muted animate-pulse"></div>
+            <div class="flex-1 min-w-0">
+              <div class="h-4 w-24 bg-muted rounded animate-pulse mb-1"></div>
+              <div class="h-3 w-16 bg-muted rounded animate-pulse"></div>
+            </div>
+          </div>
+        </template>
+        </ClientOnly>
         <UiButton 
           variant="outline" 
           size="sm" 
@@ -147,6 +175,7 @@
       </div>
       
       <!-- Storage Info (Admin only) - Compact version -->
+      <ClientOnly>
       <div v-if="isAdmin && combinedStorage" class="p-3 border-t">
         <div class="flex items-center justify-between mb-2">
           <div class="flex items-center gap-2">
@@ -166,6 +195,7 @@
           ></div>
         </div>
       </div>
+      </ClientOnly>
     </aside>
 
     <!-- Main Content -->
@@ -173,14 +203,19 @@
         <header class="h-14 border-b bg-background/95 backdrop-blur flex items-center justify-between px-6 sticky top-0 z-10">
            <div class="flex items-center gap-4">
               <h1 class="font-semibold text-xl tracking-tight text-[#1E1919] dark:text-foreground">
-                {{ isAdmin ? 'File Explorer' : 'My Files' }}
+                <ClientOnly>
+                  {{ isAdmin ? 'File Explorer' : 'My Files' }}
+                  <template #fallback>Files</template>
+                </ClientOnly>
               </h1>
               
               <!-- Connected Accounts Badge (Admin Only) -->
+              <ClientOnly>
               <NuxtLink v-if="isAdmin && accounts.length > 0" to="/admin/accounts" class="hidden md:flex items-center h-7 px-3 rounded-full bg-blue-50 text-blue-700 dark:bg-blue-500/10 dark:text-blue-400 border border-blue-200/50 dark:border-blue-500/20 text-xs font-medium shadow-sm hover:bg-blue-100 dark:hover:bg-blue-500/20 transition-colors">
                  <Icon name="lucide:hard-drive" class="h-3 w-3 mr-1.5" />
                  <span>{{ accounts.length }} Account{{ accounts.length > 1 ? 's' : '' }}</span>
               </NuxtLink>
+              </ClientOnly>
            </div>
            <div class="flex items-center gap-2">
                <div class="relative hidden sm:block">

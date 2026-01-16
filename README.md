@@ -67,6 +67,25 @@ Aplikasi web modern untuk mengelola multiple akun Dropbox dengan fitur file shar
 - ✅ Delete account
 - ✅ Storage usage per account dengan color-coded badges
 
+### 🗑️ Trash Management
+- ✅ View deleted files from all connected accounts
+- ✅ Restore deleted files
+- ✅ Bulk restore/delete operations
+- ✅ Expiration countdown (30 days retention)
+- ✅ Filter expired entries automatically
+
+## ⚠️ Known Limitations
+
+### Dropbox Personal Account
+- **Permanent Delete** - Dropbox Personal accounts do NOT support permanent delete via API
+  - Files in trash will be automatically deleted after 30 days
+  - To delete immediately, use [Dropbox.com](https://www.dropbox.com/deleted_files) directly
+  - This is a Dropbox API limitation, not a bug
+
+### Development Warnings
+- `/_nuxt/` route warnings - Normal Vite development behavior, ignored in production
+- `Symbol(route location)` warnings - May appear during HMR, does not affect functionality
+
 ## 🚀 Setup
 
 ### 1. Prerequisites

@@ -2,10 +2,14 @@
 export default defineNuxtConfig({
   compatibilityDate: '2024-11-01',
   devtools: {
-    enabled: true
+    enabled: true,
+    timeline: {
+      enabled: true
+    }
   },
 
   modules: [
+    '@nuxt/devtools',
     '@nuxtjs/tailwindcss',
     'reka-ui/nuxt',
     '@nuxt/icon',
@@ -23,6 +27,7 @@ export default defineNuxtConfig({
   },
 
   routeRules: {
+    '/': { redirect: '/drive/upload' },
     '/upload': { redirect: '/drive/upload' },
     '/user': { redirect: '/drive' },
     '/download/**': { redirect: '/file/**' }

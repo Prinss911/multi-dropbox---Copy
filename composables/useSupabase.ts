@@ -55,11 +55,41 @@ export const useSupabaseClient = () => {
 let initPromise: Promise<void> | null = null
 
 /**
+ * Track if auth is initialized (module level)
+ */
+let authInitialized = false
+
+/**
  * Wait for Supabase auth to initialize (check local storage)
  */
 export const waitForAuthInit = async () => {
     if (import.meta.server) return
-    if (initPromise) await initPromise
+
+    // If init already done, return immediately
+    if (authInitialized) return
+
+    // If initPromise exists, wait for it
+    if (initPromise) {
+        await initPromise
+        authInitialized = true
+        return
+    }
+
+    // Otherwise, we need to wait for useSupabaseUser to be called
+    // Create a polling mechanism to wait for initPromise
+    let attempts = 0
+    const maxAttempts = 50 // 5 seconds max
+
+    while (!initPromise && attempts < maxAttempts) {
+        await new Promise(resolve => setTimeout(resolve, 100))
+        attempts++
+    }
+
+    // Now wait for it if it exists
+    if (initPromise) {
+        await initPromise
+        authInitialized = true
+    }
 }
 
 /**

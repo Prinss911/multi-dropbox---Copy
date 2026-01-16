@@ -2,6 +2,53 @@
 
 All notable changes to this project will be documented in this file.
 
+## [1.1.0] - 2026-01-16
+
+### Added
+- **@nuxt/devtools** - Explicitly installed DevTools module for better development experience
+- **Service Worker stub** - Added `public/sw.js` to prevent browser 404 warnings
+- **Trash page info message** - Added informational message about Dropbox Personal Account limitations
+
+### Fixed
+
+#### Authentication & Middleware
+- **Admin page refresh redirect bug** - Fixed issue where refreshing admin pages would incorrectly redirect to `/drive`
+- **waitForAuthInit timing** - Improved auth initialization to properly wait for authentication before route protection
+- **fetchRole race condition** - Ensured role is fetched before admin route access checks
+
+#### Hydration Issues
+- **Layout hydration mismatches** - Wrapped auth-dependent components in `<ClientOnly>`:
+  - Navigation sidebar
+  - User profile section
+  - Storage info section
+  - Header title and accounts badge
+  - Management section
+- **useSupabase composable** - Fixed `waitForAuthInit` to use module-level variable instead of `useState` to prevent "injection not found" warnings
+
+#### Trash Management
+- **Multi-account trash API** - Fixed `/api/dropbox/trash` to correctly use `accountId` from query parameters instead of always using active account
+- **Expired files filter** - Added filtering to exclude trash entries that have expired (`daysRemaining <= 0`)
+- **Removed verbose logging** - Removed "Could not get revisions" console log spam
+
+#### User Interface
+- **User name display** - Fixed "Pending Invite" showing for active users with empty names; now shows email prefix instead
+- **Account badge consistency** - Updated shares page account badge style to match dashboard (`rounded-full`, `whitespace-nowrap`, `truncate`)
+
+#### Routing
+- **Root redirect** - Added server-side route rule to redirect `/` to `/drive/upload` (public upload page)
+- **Index page** - Simplified `pages/index.vue` to use routeRules instead of client-side navigation
+
+### Changed
+- **DevTools configuration** - Added timeline feature to devtools config
+- **Route rules** - Added `/` → `/drive/upload` redirect in `nuxt.config.ts`
+
+### Technical
+- Updated `types/supabase.ts` - Added `files` and `user_id` fields to shares Insert/Update types
+- Updated `server/utils/shares.ts` - Added `share_link` field to `createShare` function
+- Updated `getAccountColor` function in shares.vue to accept optional second parameter
+
+---
+
 ## [Unreleased]
 
 ### Added
@@ -60,3 +107,4 @@ All notable changes to this project will be documented in this file.
 - Admin dashboard with statistics
 - User authentication with Supabase
 - Role-based access control (Admin/User)
+
