@@ -175,8 +175,8 @@ export default defineEventHandler(async (event) => {
             setHeader(event, 'Accept-Ranges', 'bytes')
         }
 
-        // Increment download count
-        await incrementDownloadCount(shareId)
+        // Note: View/download count is tracked via /api/shares/[id]/view endpoint
+        // to avoid double-counting from multiple stream requests
 
         return proxyResponse.body
 

@@ -94,6 +94,41 @@ export default defineEventHandler(async (event) => {
         // Clean expired shares first
         await cleanExpiredShares()
 
+        // CHECK: Does an active share already exist for this file + account?
+        const { useSupabase } = await import('../../utils/supabase')
+        const supabase = useSupabase()
+        const now = new Date().toISOString()
+
+        const { data: existingShareData } = await supabase
+            .from('shares')
+            .select('id, expires_at')
+            .eq('file_path', filePath)
+            .eq('account_id', account.id)
+            .or(`expires_at.gt.${now},expires_at.is.null`)
+            .limit(1)
+            .maybeSingle()
+
+        const existingShare = existingShareData as { id: string; expires_at: string | null } | null
+
+        if (existingShare) {
+            // Return existing share instead of creating new one
+            console.log(`[Share] Active share already exists for "${filePath}", returning existing link.`)
+
+            const host = getHeader(event, 'host') || 'localhost:3000'
+            const protocol = host.includes('localhost') ? 'http' : 'https'
+            const shareUrl = `${protocol}://${host}/file/${existingShare.id}`
+
+            return {
+                success: true,
+                existing: true, // Flag to indicate this was an existing share
+                share: {
+                    id: existingShare.id,
+                    expiresAt: existingShare.expires_at,
+                    url: shareUrl
+                }
+            }
+        }
+
         // Build files array (for single file share)
         const files = [{
             name: fileName,
@@ -101,7 +136,7 @@ export default defineEventHandler(async (event) => {
             size: body.fileSize || 0
         }]
 
-        // Create share link
+        // Create NEW share link
         const share = await createShare({
             fileId: fileId || filePath,
             fileName,

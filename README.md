@@ -24,11 +24,15 @@ Aplikasi web modern untuk mengelola multiple akun Dropbox dengan fitur file shar
 - ✅ Wake lock untuk mencegah sleep saat upload besar
 
 ### 📂 Virtual Folder System
+- ✅ **Persistent folders** - Folders remain visible even when empty
 - ✅ **Organize locally** - Files diorganisir di aplikasi, tidak dipindahkan di Dropbox
+- ✅ **Dedicated table** - Folders stored in `virtual_folders` database table
 - ✅ **Drag & drop** - Drag file ke folder untuk memasukkan
+- ✅ **Long-press to drag** - Hold 400ms before drag activates (prevents accidental)
+- ✅ **Drop on breadcrumbs** - Drag to breadcrumb to move files out of folder
 - ✅ **Click to open** - Klik folder untuk melihat isi
 - ✅ **Breadcrumb navigation** - "My Files" → folder name
-- ✅ **Auto-hide empty** - Folder kosong otomatis hilang
+- ✅ **Delete empty folders** - Remove folders you don't need anymore
 - ✅ **Remove button** - Tombol folder-minus untuk keluarkan file
 
 ### ✨ Bulk Operations
@@ -48,9 +52,17 @@ Aplikasi web modern untuk mengelola multiple akun Dropbox dengan fitur file shar
 - ✅ Single share link untuk semua files
 - ✅ Network-aware dengan auto-pause saat offline
 
-### 🔗 Anonymous Sharing
+### 🔗 Sharing & Embedding
 - ✅ Generate shareable download links
 - ✅ Customizable expiration (1 day, 7 days, 30 days, never)
+- ✅ **Embeddable video player** - Embed videos in external websites
+- ✅ **Embed URL** - Direct URL for video players (`/embed/SHARE_ID`)
+- ✅ **iFrame code** - Ready-to-use HTML embed code
+- ✅ **Quick Embed** - One-click embed generation with auto share
+- ✅ **View counter** - Accurate tracking of embed/stream views
+- ✅ **Delete share link** - Revoke active links with inline confirmation
+- ✅ **Duplicate prevention** - Prevents creating multiple links for same file
+- ✅ **Expiry display** - Shows "X days left" in file list
 - ✅ Download individual files atau semua sebagai ZIP
 - ✅ Track download count
 - ✅ Auto-detect deleted files
@@ -116,6 +128,9 @@ All sensitive API endpoints are protected with role-based authorization:
 These endpoints are public by design for sharing functionality:
 - `/api/shares/[id]/download` - Public file download links
 - `/api/shares/[id]/stream` - Public file streaming
+- `/api/shares/[id]/transcode` - HLS stream URL for videos
+- `/api/shares/[id]/view` - View/play count tracking
+- `/embed/[id]` - Embeddable video player page
 - `/api/anonymous/*` - Anonymous file upload
 
 ### Authentication Flow
@@ -317,9 +332,11 @@ Buka http://localhost:3000
 - `DELETE /api/accounts/:id` - Delete account
 
 ### Files (User)
-- `GET /api/my-files` - List user's files
+- `GET /api/my-files` - List user's files and folders
 - `POST /api/files/delete` - Delete own file (ownership verified)
 - `POST /api/files/update-folder` - Update virtual folder assignment
+- `POST /api/folder/create` - Create new virtual folder
+- `POST /api/folder/delete` - Delete empty virtual folder
 
 ### Files (Admin)
 - `GET /api/dropbox/all-files` - List all files (admin)
@@ -330,11 +347,18 @@ Buka http://localhost:3000
 - `GET /api/dropbox/storage-all` - Get all accounts storage
 
 ### Shares
-- `POST /api/shares/create` - Create share link
+- `POST /api/shares/create` - Create share link (returns existing if active)
 - `GET /api/shares/:id/download` - Get share info & download links
 - `GET /api/shares/:id/download-all` - Download all files as ZIP
-- `DELETE /api/shares/:id` - Delete share link
+- `GET /api/shares/:id/stream` - Stream file content (for player)
+- `GET /api/shares/:id/transcode` - Get HLS stream URL for video
+- `POST /api/shares/:id/view` - Track view/play count
+- `DELETE /api/shares/:id` - Delete share link (owner/admin)
 - `GET /api/admin/shares` - List all shares (admin)
+
+### Embed
+- `GET /embed/:id` - Embeddable video player page (public)
+- `POST /api/embed/generate` - Auto-create share & get embed URL (auth required)
 
 ### Admin
 - `GET /api/admin/dashboard` - Dashboard statistics

@@ -2,6 +2,83 @@
 
 All notable changes to this project will be documented in this file.
 
+## [1.3.0] - 2026-01-16
+
+### Added
+
+#### Persistent Virtual Folders 📁
+- **New `virtual_folders` table** - Dedicated database table for storing folders
+- **Folders persist when empty** - Folders now remain visible even without files
+- **Delete empty folders** - New API endpoint `/api/folder/delete` to remove empty folders
+- **Data migration** - Existing virtual folder tags automatically migrated to new table
+
+#### Improved Drag & Drop UX 🖱️
+- **Long-press to drag** - Drag operation only activates after 400ms hold (prevents accidental drags)
+- **Visual feedback** - Blue ring and slight scale when long-press activates
+- **Haptic feedback** - Vibration on mobile devices when drag ready
+- **Drop on breadcrumbs** - Drag files to breadcrumb navigation to move them out of folders
+- **No more cursor-move on hover** - Clean `cursor-pointer` instead of immediate move cursor
+
+#### Link Expiration Display ⏰
+- **"X days left" display** - Shows remaining days until share link expires in file list
+- **Color-coded urgency** - Red for ≤3 days, orange for ≤7 days
+- **Expires today/tomorrow** - Human-readable labels for imminent expiration
+
+#### Embeddable Video Player 🎬
+- **Embed page** - New `/embed/[id]` page for embedding videos in external websites
+- **Full-screen player** - Clean player without UI chrome (no header/footer)
+- **Auto-play** - Videos automatically play when embedded
+- **Embed URL** - Direct URL for use in video players (`/embed/SHARE_ID`)
+- **iFrame Code** - Ready-to-use HTML iframe code for websites
+- **Public access** - Embed pages accessible without authentication
+- **Quick Embed button** - One-click embed generation (auto-creates share link)
+- **View counter** - Track embed views via `/api/shares/[id]/view` endpoint
+
+#### Share Link Management 🔗
+- **Delete share link** - Users can delete/revoke active share links from Share Modal
+- **Inline confirmation** - Beautiful confirmation UI instead of browser dialog
+- **Duplicate prevention** - System prevents creating new links if active link exists
+- **Return existing link** - If share already exists, API returns existing link instead of creating duplicate
+- **Pre-populate modal** - Share Modal auto-loads existing link info when opened
+- **Generate embed API** - New `/api/embed/generate` endpoint for auto-creating shares
+
+### Changed
+- **Folder creation** - Now inserts into `virtual_folders` table instead of `files` table
+- **API response** - `my-files.get.ts` returns folders with `isVirtualFolder: true` flag
+- **Frontend merging** - Combines persistent folders with virtual tag folder counts
+- **Share Modal UI** - Added tabs for "Share Link" and "Embed Code"
+- **Stream counter removed** - View tracking moved to dedicated endpoint to avoid double-counting
+
+### Fixed
+- **Share delete authorization** - Now checks file ownership for legacy shares without userId
+- **getShareById missing userId** - Fixed function to return userId for ownership checks
+
+### Database
+- **New table: `virtual_folders`**
+  - `id` (UUID) - Primary key
+  - `user_id` (UUID) - Foreign key to auth.users
+  - `name` (TEXT) - Folder name
+  - `created_at` (TIMESTAMPTZ)
+  - `UNIQUE(user_id, name)` - One folder name per user
+- **RLS enabled** - Row Level Security policies for user isolation
+
+### Technical
+- Created `pages/embed/[id].vue` for embeddable video player with view tracking
+- Created `server/api/shares/[id]/view.post.ts` for accurate view counting
+- Created `server/api/embed/generate.post.ts` for one-click embed generation
+- Updated `middleware/auth.global.ts` to allow public access to `/embed` routes
+- Updated `server/api/shares/create.post.ts` with duplicate share prevention
+- Updated `server/api/shares/[id].delete.ts` with file ownership fallback
+- Updated `server/api/shares/[id]/stream.get.ts` - removed counter (moved to view endpoint)
+- Updated `server/utils/shares.ts` - getShareById now returns userId
+- Updated `pages/drive/files.vue` with embed helpers, delete share, inline confirmation
+- Updated `types/supabase.ts` with `virtual_folders` table types
+- Updated `server/api/my-files.get.ts` to fetch from `virtual_folders`
+- Updated `server/api/folder/create.post.ts` to use new table
+- Created `server/api/folder/delete.post.ts` for folder deletion
+
+---
+
 ## [1.2.0] - 2026-01-16
 
 ### Added

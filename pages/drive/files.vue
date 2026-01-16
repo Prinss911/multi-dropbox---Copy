@@ -592,7 +592,22 @@
                   </div>
                </div>
                
-               <div class="space-y-2">
+               <!-- Tabs -->
+               <div class="flex border-b border-border mb-2">
+                   <button 
+                       @click="shareTab = 'link'" 
+                       :class="['px-4 py-2 text-sm font-medium border-b-2 transition-colors focus:outline-none', shareTab === 'link' ? 'border-[#0061FE] text-[#0061FE]' : 'border-transparent text-muted-foreground hover:text-foreground']">
+                       Share Link
+                   </button>
+                   <button 
+                       @click="shareTab = 'embed'" 
+                       :class="['px-4 py-2 text-sm font-medium border-b-2 transition-colors focus:outline-none', shareTab === 'embed' ? 'border-[#0061FE] text-[#0061FE]' : 'border-transparent text-muted-foreground hover:text-foreground']">
+                       Embed Code
+                   </button>
+               </div>
+
+               <!-- Link Content -->
+               <div v-if="shareTab === 'link'" class="space-y-2 animate-in fade-in slide-in-from-left-2 duration-200">
                   <label class="text-xs font-bold uppercase text-muted-foreground tracking-wider">Link to file</label>
                   <div class="flex gap-2">
                      <div class="flex-1 relative">
@@ -614,14 +629,123 @@
                   </div>
                </div>
 
-               <div class="flex items-center justify-between pt-2">
-                  <span class="text-xs text-muted-foreground">Expires: <span class="font-medium text-foreground">{{ formatExpiry(shareResult.expiresAt) }}</span></span>
-                  <button @click="closeShareModal" class="text-sm text-muted-foreground hover:text-foreground hover:underline">Done</button>
+               <!-- Embed Content -->
+               <div v-else class="space-y-4 animate-in fade-in slide-in-from-right-2 duration-200">
+                   <!-- Direct URL -->
+                   <div class="space-y-2">
+                       <label class="text-xs font-bold uppercase text-muted-foreground tracking-wider">Embed URL</label>
+                       <div class="flex gap-2">
+                           <input 
+                               type="text"
+                               readonly
+                               :value="getEmbedUrl(shareResult.id)"
+                               class="flex-1 h-10 px-3 bg-muted/30 border rounded-md text-xs font-mono text-foreground focus:ring-2 focus:ring-blue-500/20 outline-none"
+                           />
+                           <button 
+                               @click="copyEmbedUrl(shareResult.id)"
+                               class="h-10 px-4 rounded-md bg-muted hover:bg-muted/80 text-foreground font-medium text-sm transition-colors flex items-center gap-2 border"
+                           >
+                               <Icon v-if="copied" name="lucide:check" class="h-4 w-4 text-green-500" />
+                               <Icon v-else name="lucide:link" class="h-4 w-4" />
+                           </button>
+                       </div>
+                       <p class="text-xs text-muted-foreground">Use this URL directly in your video player.</p>
+                   </div>
+                   
+                   <!-- iFrame Code -->
+                   <div class="space-y-2">
+                       <label class="text-xs font-bold uppercase text-muted-foreground tracking-wider">iFrame Code</label>
+                       <div class="relative group">
+                           <textarea 
+                               readonly
+                               :value="getEmbedCode(shareResult.id)"
+                               class="w-full h-20 p-3 bg-muted/50 border rounded-md text-xs font-mono text-foreground resize-none focus:ring-2 focus:ring-blue-500/20 outline-none transition-all"
+                           ></textarea>
+                           <button 
+                               @click="copyEmbedCode(shareResult.id)"
+                               class="absolute top-2 right-2 p-1.5 bg-background shadow-sm border rounded hover:bg-muted text-[#0061FE] transition-all opacity-0 group-hover:opacity-100"
+                               title="Copy Code"
+                           >
+                               <Icon v-if="copied" name="lucide:check" class="h-4 w-4" />
+                               <Icon v-else name="lucide:copy" class="h-4 w-4" />
+                           </button>
+                       </div>
+                       <p class="text-xs text-muted-foreground">Paste this code into your website's HTML.</p>
+                   </div>
+               </div>
+
+               <!-- Footer with Expiry & Actions -->
+               <div class="pt-4 border-t mt-4">
+                   <!-- Delete Confirmation -->
+                   <div v-if="confirmDeleteShare" class="p-3 bg-red-50 dark:bg-red-900/20 rounded-lg border border-red-200 dark:border-red-800/50 mb-3 animate-in fade-in slide-in-from-bottom-2 duration-200">
+                       <p class="text-sm text-red-800 dark:text-red-200 font-medium mb-2">Delete this share link?</p>
+                       <p class="text-xs text-red-600 dark:text-red-400 mb-3">Anyone with this link will no longer be able to access the file.</p>
+                       <div class="flex gap-2">
+                           <button 
+                               @click="deleteShareLink"
+                               :disabled="isDeletingShare"
+                               class="px-4 py-2 bg-red-600 hover:bg-red-700 text-white text-sm font-medium rounded-lg transition-colors disabled:opacity-50 flex items-center gap-2"
+                           >
+                               <Icon v-if="isDeletingShare" name="lucide:loader-2" class="h-4 w-4 animate-spin" />
+                               <Icon v-else name="lucide:trash-2" class="h-4 w-4" />
+                               Yes, Delete
+                           </button>
+                           <button 
+                               @click="confirmDeleteShare = false"
+                               class="px-4 py-2 bg-white dark:bg-gray-800 border text-gray-700 dark:text-gray-200 text-sm font-medium rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
+                           >
+                               Cancel
+                           </button>
+                       </div>
+                   </div>
+
+                   <!-- Normal Footer -->
+                   <div v-else class="flex items-center justify-between">
+                       <span class="text-xs text-muted-foreground">Expires: <span class="font-medium text-foreground">{{ formatExpiry(shareResult.expiresAt) }}</span></span>
+                       <div class="flex items-center gap-3">
+                          <button 
+                             @click="deleteShareLink"
+                             class="text-sm text-red-500 hover:text-red-600 hover:underline flex items-center gap-1"
+                          >
+                             <Icon name="lucide:trash-2" class="h-3 w-3" />
+                             Delete Link
+                          </button>
+                          <button @click="closeShareModal" class="text-sm text-muted-foreground hover:text-foreground hover:underline">Done</button>
+                       </div>
+                   </div>
                </div>
             </div>
 
             <!-- Create Share State -->
             <div v-else class="space-y-6">
+              <!-- Quick Embed Option -->
+              <div class="p-4 bg-gradient-to-r from-purple-50 to-pink-50 dark:from-purple-900/20 dark:to-pink-900/20 rounded-lg border border-purple-100 dark:border-purple-800/30">
+                  <div class="flex items-start gap-3">
+                      <div class="p-2 bg-purple-100 dark:bg-purple-800/30 rounded-full text-purple-600 dark:text-purple-400 shrink-0">
+                          <Icon name="lucide:code" class="h-4 w-4" />
+                      </div>
+                      <div class="flex-1 min-w-0">
+                          <p class="text-sm font-medium text-purple-900 dark:text-purple-200">Quick Embed</p>
+                          <p class="text-xs text-purple-600 dark:text-purple-400 mt-0.5">Get embed code instantly (link never expires)</p>
+                      </div>
+                      <button 
+                          @click="shareTarget && generateEmbed(shareTarget)"
+                          :disabled="isGeneratingEmbed"
+                          class="px-4 py-2 bg-purple-600 hover:bg-purple-700 text-white text-sm font-medium rounded-lg transition-colors disabled:opacity-50 flex items-center gap-2"
+                      >
+                          <Icon v-if="isGeneratingEmbed" name="lucide:loader-2" class="h-4 w-4 animate-spin" />
+                          <Icon v-else name="lucide:sparkles" class="h-4 w-4" />
+                          Generate
+                      </button>
+                  </div>
+              </div>
+
+              <div class="relative flex items-center">
+                  <div class="flex-grow border-t border-border"></div>
+                  <span class="px-3 text-xs text-muted-foreground">or create link with expiration</span>
+                  <div class="flex-grow border-t border-border"></div>
+              </div>
+
               <div>
                  <label class="text-sm font-medium text-foreground mb-3 block">Link settings</label>
                  <div class="space-y-3">
@@ -2088,9 +2212,10 @@ const copyExistingLink = async (file: FileEntry) => {
 
 // Share Modal State
 const shareTarget = ref<FileEntry | null>(null)
-const shareResult = ref<{ url: string; expiresAt: string | null } | null>(null)
+const shareResult = ref<{ id: string; url: string; expiresAt: string | null } | null>(null)
 const isSharing = ref(false)
 const copied = ref(false)
+const shareTab = ref<'link' | 'embed'>('link')
 
 // Expiration options
 const expirationOptions = [
@@ -2106,15 +2231,27 @@ const selectedExpiration = ref<number | string>(7)
 // Open share modal
 const openShareModal = (file: FileEntry) => {
   shareTarget.value = file
-  shareResult.value = null
   copied.value = false
   selectedExpiration.value = 7
+  shareTab.value = 'link'
+  
+  // Pre-populate if share exists
+  if (file.shareId && file.shareUrl) {
+      shareResult.value = {
+          id: file.shareId,
+          url: `${window.location.origin}${file.shareUrl}`,
+          expiresAt: file.shareExpiresAt || null
+      }
+  } else {
+      shareResult.value = null
+  }
 }
 
 // Close share modal
 const closeShareModal = () => {
   shareTarget.value = null
   shareResult.value = null
+  confirmDeleteShare.value = false
 }
 
 // Handle share
@@ -2144,6 +2281,7 @@ const handleShare = async () => {
     })
 
     shareResult.value = {
+      id: result.share.id, // Ensure ID is captured
       url: result.share.url,
       expiresAt: result.share.expiresAt
     }
@@ -2161,6 +2299,128 @@ const copyShareLink = async () => {
   await navigator.clipboard.writeText(shareResult.value.url)
   copied.value = true
   setTimeout(() => copied.value = false, 2000)
+}
+
+// Embed Helpers
+const getEmbedCode = (id: string) => {
+    const origin = window.location.origin
+    return `<iframe src="${origin}/embed/${id}" width="100%" height="100%" frameborder="0" allowfullscreen></iframe>`
+}
+
+const copyEmbedCode = async (id: string) => {
+    await navigator.clipboard.writeText(getEmbedCode(id))
+    copied.value = true
+    setTimeout(() => copied.value = false, 2000)
+}
+
+// Embed URL helpers
+const getEmbedUrl = (id: string) => {
+    return `${window.location.origin}/embed/${id}`
+}
+
+const copyEmbedUrl = async (id: string) => {
+    await navigator.clipboard.writeText(getEmbedUrl(id))
+    copied.value = true
+    setTimeout(() => copied.value = false, 2000)
+}
+
+// Generate embed (auto-create share if needed)
+const isGeneratingEmbed = ref(false)
+const generateEmbed = async (file: FileEntry) => {
+    isGeneratingEmbed.value = true
+    try {
+        const { data: { session } } = await supabase.auth.getSession()
+        
+        const result = await $fetch<{
+            success: boolean
+            shareId: string
+            embedUrl: string
+            shareUrl: string
+            expiresAt: string | null
+        }>('/api/embed/generate', {
+            method: 'POST',
+            body: { fileId: file.id },
+            headers: session?.access_token ? { Authorization: `Bearer ${session.access_token}` } : {}
+        })
+        
+        // Update shareResult with generated share
+        shareResult.value = {
+            id: result.shareId,
+            url: result.shareUrl,
+            expiresAt: result.expiresAt
+        }
+        
+        // Update local file data
+        if (data.value) {
+            const fileIndex = data.value.findIndex(f => f.id === file.id)
+            if (fileIndex !== -1) {
+                data.value[fileIndex] = {
+                    ...data.value[fileIndex],
+                    shareId: result.shareId,
+                    shareUrl: `/file/${result.shareId}`,
+                    shareExpiresAt: result.expiresAt
+                }
+            }
+        }
+        
+        // Switch to embed tab
+        shareTab.value = 'embed'
+        
+    } catch (err: any) {
+        console.error('Failed to generate embed:', err)
+        alert('Failed to generate embed: ' + (err.data?.message || err.message || 'Unknown error'))
+    } finally {
+        isGeneratingEmbed.value = false
+    }
+}
+
+// Delete Share Link
+const isDeletingShare = ref(false)
+const confirmDeleteShare = ref(false)
+
+const deleteShareLink = async () => {
+    if (!shareResult.value?.id) return
+    
+    // If not confirmed yet, show confirmation UI
+    if (!confirmDeleteShare.value) {
+        confirmDeleteShare.value = true
+        return
+    }
+    
+    // User has confirmed, proceed with deletion
+    isDeletingShare.value = true
+    try {
+        const { data: { session } } = await supabase.auth.getSession()
+        
+        await $fetch(`/api/shares/${shareResult.value.id}`, {
+            method: 'DELETE',
+            headers: session?.access_token ? { Authorization: `Bearer ${session.access_token}` } : {}
+        })
+        
+        // Update local file data to remove share info
+        if (shareTarget.value && data.value) {
+            const fileIndex = data.value.findIndex(f => f.id === shareTarget.value?.id)
+            if (fileIndex !== -1) {
+                data.value[fileIndex] = {
+                    ...data.value[fileIndex],
+                    shareId: null,
+                    shareUrl: null,
+                    shareExpiresAt: null
+                }
+            }
+        }
+        
+        // Reset modal state
+        shareResult.value = null
+        closeShareModal()
+        
+    } catch (err: any) {
+        console.error('Failed to delete share link:', err)
+        alert('Failed to delete share link: ' + (err.data?.message || err.message || 'Unknown error'))
+    } finally {
+        isDeletingShare.value = false
+        confirmDeleteShare.value = false
+    }
 }
 
 // Format expiry date

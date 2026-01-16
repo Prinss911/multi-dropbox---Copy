@@ -11,8 +11,8 @@ export default defineNuxtRouteMiddleware(async (to, from) => {
 
     console.log('[Middleware] Route:', to.path, '| User:', user.value?.email || 'none', '| Role:', role.value)
 
-    // Public routes (Login, Invite Confirm, Anonymous Upload, Public Downloads)
-    const publicRoutes = ['/login', '/auth/confirm', '/upload', '/drive/upload', '/access-denied', '/download', '/file']
+    // Public routes (Login, Invite Confirm, Anonymous Upload, Public Downloads, Embed Player)
+    const publicRoutes = ['/login', '/auth/confirm', '/upload', '/drive/upload', '/access-denied', '/download', '/file', '/embed']
     const isPublic = publicRoutes.some(path => to.path.startsWith(path))
 
     // No user and not public route - redirect to login

@@ -134,7 +134,8 @@ export async function getShareById(id: string): Promise<ShareLink | null> {
         accountName: data.account_name,
         createdAt: data.created_at,
         expiresAt: data.expires_at,
-        downloadCount: data.download_count
+        downloadCount: data.download_count,
+        userId: data.user_id
     }
 }
 
