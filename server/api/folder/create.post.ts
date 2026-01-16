@@ -12,7 +12,7 @@ export default defineEventHandler(async (event) => {
 
     // 2. Parse Body
     const body = await readBody(event)
-    const { name, parentPath } = body
+    const { name } = body
 
     if (!name) {
         throw createError({
@@ -21,41 +21,34 @@ export default defineEventHandler(async (event) => {
         })
     }
 
-    const cleanName = name.replace(/[<>:"/\\|?*]/g, '_')
-    const fullPath = parentPath === '/' ? `/${cleanName}` : `${parentPath}/${cleanName}`
+    // Clean folder name (remove invalid characters)
+    const cleanName = name.trim().replace(/[<>:"/\\|?*]/g, '_')
 
-    // 3. Insert into 'files' table as a folder
+    if (!cleanName) {
+        throw createError({
+            statusCode: 400,
+            statusMessage: 'Invalid folder name'
+        })
+    }
+
+    // 3. Insert into 'virtual_folders' table
     const client = await serverSupabaseClient<Database>(event)
 
-    // We need a dummy account ID because it's a required column
-    // Fetch the first available account
-    const { data: accounts } = await client
-        .from('dropbox_accounts')
-        .select('account_id')
-        .limit(1)
-        .single()
-
-    const dummyAccountId = accounts?.account_id || 'virtual-folder'
-
     const { data, error } = await client
-        .from('files')
+        .from('virtual_folders')
         .insert({
             user_id: user.id,
-            filename: cleanName,
-            dropbox_path: fullPath,
-            size: 0,
-            content_type: 'application/x-directory', // Marker for folder
-            dropbox_account_id: dummyAccountId
+            name: cleanName
         })
         .select()
         .single()
 
     if (error) {
-        // Handle duplicate folder name error potentially
+        // Handle duplicate folder name error
         if (error.code === '23505') { // Unique violation
             throw createError({
                 statusCode: 409,
-                statusMessage: 'Folder already exists'
+                statusMessage: 'Folder with this name already exists'
             })
         }
 
@@ -66,5 +59,14 @@ export default defineEventHandler(async (event) => {
         })
     }
 
-    return { success: true, folder: data }
+    return {
+        success: true,
+        folder: {
+            id: data.id,
+            name: data.name,
+            path: `/virtual/${data.name}`,
+            type: 'folder',
+            isPersistent: true
+        }
+    }
 })

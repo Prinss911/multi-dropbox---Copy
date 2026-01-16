@@ -92,6 +92,35 @@ export type Database = {
                     },
                 ]
             }
+            virtual_folders: {
+                Row: {
+                    id: string
+                    user_id: string
+                    name: string
+                    created_at: string | null
+                }
+                Insert: {
+                    id?: string
+                    user_id: string
+                    name: string
+                    created_at?: string | null
+                }
+                Update: {
+                    id?: string
+                    user_id?: string
+                    name?: string
+                    created_at?: string | null
+                }
+                Relationships: [
+                    {
+                        foreignKeyName: "virtual_folders_user_id_fkey"
+                        columns: ["user_id"]
+                        isOneToOne: false
+                        referencedRelation: "users"
+                        referencedColumns: ["id"]
+                    },
+                ]
+            }
             invitations: {
                 Row: {
                     accepted_at: string | null

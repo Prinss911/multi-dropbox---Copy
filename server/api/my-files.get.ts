@@ -27,6 +27,13 @@ export default defineEventHandler(async (event) => {
         })
     }
 
+    // Get user's virtual folders from dedicated table
+    const { data: virtualFolders } = await client
+        .from('virtual_folders')
+        .select('id, name, created_at')
+        .eq('user_id', user.id)
+        .order('name', { ascending: true })
+
     // Get file paths for querying shares
     const filePaths = files.map(f => f.dropbox_path)
 
@@ -34,21 +41,22 @@ export default defineEventHandler(async (event) => {
     const now = new Date().toISOString()
     const { data: shares } = await supabase
         .from('shares')
-        .select('id, file_path, account_id')
+        .select('id, file_path, account_id, expires_at')
         .in('file_path', filePaths)
         .or(`expires_at.gt.${now},expires_at.is.null`)
 
-    // Create a map of file paths to share IDs
-    const shareMap = new Map<string, string>()
-    const shareList = (shares || []) as { id: string; file_path: string; account_id: string }[]
+    // Create a map of file paths to share IDs and expiry
+    const shareMap = new Map<string, { id: string; expiresAt: string | null }>()
+    const shareList = (shares || []) as { id: string; file_path: string; account_id: string; expires_at: string | null }[]
     for (const share of shareList) {
         const key = `${share.account_id}:${share.file_path}`
-        shareMap.set(key, share.id)
+        shareMap.set(key, { id: share.id, expiresAt: share.expires_at })
     }
 
-    return files.map(file => {
+    // Map files to response format
+    const fileEntries = files.map(file => {
         const shareKey = `${file.dropbox_account_id}:${file.dropbox_path}`
-        const shareId = shareMap.get(shareKey)
+        const shareInfo = shareMap.get(shareKey)
 
         return {
             id: file.id,
@@ -61,9 +69,30 @@ export default defineEventHandler(async (event) => {
             accountId: file.dropbox_account_id,
             virtualFolder: file.virtual_folder || null,
             // Include share link if exists
-            shareId: shareId || null,
-            shareUrl: shareId ? `/file/${shareId}` : null
+            shareId: shareInfo?.id || null,
+            shareUrl: shareInfo?.id ? `/file/${shareInfo.id}` : null,
+            shareExpiresAt: shareInfo?.expiresAt || null
         }
     })
-})
 
+    // Map virtual folders to folder entries (persistent folders)
+    const folderEntries = (virtualFolders || []).map(folder => ({
+        id: folder.id,
+        name: folder.name,
+        path: `/virtual/${folder.name}`,
+        size: 0,
+        modified: folder.created_at,
+        type: 'folder' as const,
+        extension: null,
+        accountId: '',
+        virtualFolder: null,
+        isVirtualFolder: true, // Flag to identify this as a persistent virtual folder
+        isPersistent: true,
+        shareId: null,
+        shareUrl: null,
+        shareExpiresAt: null
+    }))
+
+    // Return combined list (folders first, then files)
+    return [...folderEntries, ...fileEntries]
+})

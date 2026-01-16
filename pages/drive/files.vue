@@ -97,6 +97,9 @@
               <Icon v-if="idx > 0" name="lucide:chevron-right" class="h-4 w-4 text-muted-foreground mx-1" />
               <button 
                 @click="handleBreadcrumbClick(crumb)"
+                @drop.prevent="handleBreadcrumbDrop($event, crumb)"
+                @dragover.prevent="handleBreadcrumbDragOver($event)"
+                @dragleave="handleBreadcrumbDragLeave"
                 class="hover:bg-muted px-2 py-1 rounded-md transition-colors font-medium flex items-center gap-1"
                 :class="idx === breadcrumbs.length - 1 ? 'text-foreground cursor-default pointer-events-none' : 'text-muted-foreground hover:text-foreground'"
               >
@@ -276,13 +279,18 @@
                  <tr 
                     v-for="file in paginatedFiles" 
                     :key="file.id" 
-                    class="group transition-colors cursor-move"
+                    class="group transition-colors duration-200"
                     :class="[
                        selectedFiles.has(file.id) ? 'bg-blue-50 dark:bg-blue-900/20' : 'hover:bg-[#F7F9FA] dark:hover:bg-muted/20',
                        dropTargetId === file.id ? 'bg-blue-100 dark:bg-blue-800/30 ring-2 ring-blue-400 ring-inset' : '',
-                       draggedFile?.id === file.id ? 'opacity-50' : ''
+                       draggedFile?.id === file.id ? 'opacity-50' : '',
+                       'cursor-pointer select-none'
                     ]"
                     :draggable="true"
+                    @click="onRowClick(file)"
+                    @mousedown="startLongPress($event, file)"
+                    @mouseup="cancelLongPress"
+                    @mouseleave="cancelLongPress"
                     @dragstart="handleDragStart($event, file)"
                     @dragend="handleDragEnd"
                     @dragover="handleDragOver($event, file)"
@@ -295,6 +303,7 @@
                           <input 
                              type="checkbox" 
                              :checked="selectedFiles.has(file.id)"
+                             @click.stop
                              @change="toggleFileSelection(file)"
                              class="h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500 cursor-pointer"
                           />
@@ -319,8 +328,7 @@
                           </div>
                           <div class="min-w-0 pr-4">
                              <p 
-                                @click="file.type === 'folder' ? handleFolderClick(file) : openPreview(file)"
-                                class="font-medium text-sm text-[#1E1919] dark:text-foreground truncate cursor-pointer hover:text-[#0061FE] transition-colors" 
+                                class="font-medium text-sm text-[#1E1919] dark:text-foreground truncate transition-colors group-hover:text-[#0061FE]" 
                                 :title="file.name"
                              >
                                 {{ file.name }}
@@ -343,9 +351,14 @@
                        {{ formatDate(file.modified) }}
                     </td>
                     <td class="py-3 px-4 text-sm hidden lg:table-cell">
-                       <div v-if="file.shareUrl" class="flex items-center gap-1.5 text-xs text-green-600 font-medium px-2 py-1 bg-green-50 rounded-full w-fit">
-                          <Icon name="lucide:globe" class="h-3 w-3" />
-                          <span>Link active</span>
+                       <div v-if="file.shareUrl" class="flex flex-col items-start gap-1">
+                          <div class="flex items-center gap-1.5 text-xs text-green-600 font-medium px-2 py-1 bg-green-50 rounded-full w-fit">
+                              <Icon name="lucide:globe" class="h-3 w-3" />
+                              <span>Link active</span>
+                          </div>
+                          <span v-if="file.shareExpiresAt" :class="getExpiryColor(file.shareExpiresAt)" class="text-[10px] ml-1">
+                              {{ getExpiryDistance(file.shareExpiresAt) }}
+                          </span>
                        </div>
                        <div v-else class="text-xs text-muted-foreground italic">Only you</div>
                     </td>
@@ -354,7 +367,7 @@
                        <div class="flex items-center justify-end gap-1 opacity-100 md:opacity-0 group-hover:opacity-100 transition-opacity">
                           <button 
                              v-if="file.shareUrl"
-                             @click="copyExistingLink(file)"
+                             @click.stop="copyExistingLink(file)"
                              :title="copiedFileId === file.id ? 'Copied' : 'Copy link'"
                              class="h-8 w-8 flex items-center justify-center rounded hover:bg-white hover:text-green-600 hover:shadow-sm transition-all"
                              :class="copiedFileId === file.id ? 'text-green-600 bg-green-50' : 'text-muted-foreground'"
@@ -363,7 +376,7 @@
                           </button>
 
                           <button 
-                             @click="openPreview(file)"
+                             @click.stop="openPreview(file)"
                              title="Preview"
                              class="h-8 w-8 flex items-center justify-center rounded hover:bg-purple-50 hover:text-purple-600 hover:shadow-sm transition-all text-muted-foreground"
                           >
@@ -371,7 +384,7 @@
                           </button>
 
                           <button 
-                             @click="openShareModal(file)"
+                             @click.stop="openShareModal(file)"
                              title="Share"
                              class="h-8 w-8 flex items-center justify-center rounded hover:bg-[#0061FE] hover:text-white hover:shadow-sm transition-all text-muted-foreground"
                           >
@@ -379,7 +392,7 @@
                           </button>
                           
                           <button 
-                             @click="handleDownload(file)"
+                             @click.stop="handleDownload(file)"
                              title="Download"
                              class="h-8 w-8 flex items-center justify-center rounded hover:bg-white hover:text-[#0061FE] hover:shadow-sm transition-all text-muted-foreground"
                           >
@@ -389,7 +402,7 @@
                           <!-- Remove from folder button (only visible when file is in a virtual folder) -->
                           <button 
                              v-if="file.virtualFolder"
-                             @click="removeFromFolder(file)"
+                             @click.stop="removeFromFolder(file)"
                              title="Remove from folder"
                              class="h-8 w-8 flex items-center justify-center rounded hover:bg-orange-50 hover:text-orange-600 hover:shadow-sm transition-all text-muted-foreground"
                           >
@@ -397,7 +410,7 @@
                           </button>
 
                           <button 
-                             @click="confirmDelete(file)"
+                             @click.stop="confirmDelete(file)"
                              title="Delete"
                              class="h-8 w-8 flex items-center justify-center rounded hover:bg-red-50 hover:text-red-600 hover:shadow-sm transition-all text-muted-foreground"
                           >
@@ -416,14 +429,18 @@
            <div 
               v-for="file in paginatedFiles" 
               :key="file.id"
-              class="group relative bg-card border rounded-[10px] p-4 flex flex-col items-center text-center transition-all duration-200"
+              class="group relative bg-card border rounded-[10px] p-4 flex flex-col items-center text-center transition-all duration-200 select-none"
               :class="[
                  selectedFiles.has(file.id) ? 'bg-blue-50 dark:bg-blue-900/20 border-blue-300 dark:border-blue-700' : 'hover:bg-muted/30 border-transparent hover:border-border/50',
                  dropTargetId === file.id ? 'bg-blue-100 dark:bg-blue-800/30 ring-2 ring-blue-400' : '',
                  draggedFile?.id === file.id ? 'opacity-50' : '',
-                 'cursor-move'
+                 'cursor-pointer'
               ]"
               :draggable="true"
+              @click="onRowClick(file)"
+              @mousedown="startLongPress($event, file)"
+              @mouseup="cancelLongPress"
+              @mouseleave="cancelLongPress"
               @dragstart="handleDragStart($event, file)"
               @dragend="handleDragEnd"
               @dragover="handleDragOver($event, file)"
@@ -897,6 +914,7 @@ interface FileEntry {
   extension: string | null
   accountId: string
   shareUrl?: string | null
+  shareExpiresAt?: string | null
   duration?: string
   shareId?: string | null
   type?: 'file' | 'folder'
@@ -922,9 +940,52 @@ const currentVirtualFolder = ref<string | null>(null)
 const draggedFile = ref<FileEntry | null>(null)
 const dropTargetId = ref<string | null>(null)
 const isMoving = ref(false)
+const isLongPress = ref(false)
+const longPressTimer = ref<any>(null)
+
+// Long Press Logic
+const startLongPress = (e: MouseEvent, file: FileEntry) => {
+  // Only left click
+  if (e.button !== 0) return
+  
+  const target = e.currentTarget as HTMLElement
+
+  longPressTimer.value = setTimeout(() => {
+    isLongPress.value = true
+    if (navigator.vibrate) navigator.vibrate(50)
+    // Visual indicator that drag is ready
+    target.classList.add('ring-2', 'ring-blue-400', 'scale-[1.02]')
+  }, 400) // 400ms delay for long press
+}
+
+const cancelLongPress = (e?: Event) => {
+  if (longPressTimer.value) {
+    clearTimeout(longPressTimer.value)
+    longPressTimer.value = null
+  }
+  
+  if (isLongPress.value) {
+    // If it was active, remove visual indicator from current target context if possible
+    // Note: in dragEnd we clean up, but if user just mouseups without dragging:
+    if (e && e.currentTarget) {
+       (e.currentTarget as HTMLElement).classList.remove('ring-2', 'ring-blue-400', 'scale-[1.02]')
+    }
+  }
+  // isLongPress reset happens in dragEnd or here if drag didn't start?
+  // If drag didn't start, we should reset it immediately on mouse up
+  if (!draggedFile.value) {
+      isLongPress.value = false
+  }
+}
 
 // Drag & Drop Handlers
 const handleDragStart = (event: DragEvent, file: FileEntry) => {
+  // Enforce long press
+  if (!isLongPress.value) {
+    event.preventDefault()
+    return
+  }
+
   event.stopPropagation() // Prevent triggering parent's drag handlers
   if (file.type === 'folder') {
     // Allow dragging folders too
@@ -942,8 +1003,11 @@ const handleDragStart = (event: DragEvent, file: FileEntry) => {
 const handleDragEnd = (event: DragEvent) => {
   draggedFile.value = null
   dropTargetId.value = null
+  isLongPress.value = false // Reset state
+  
   const target = event.target as HTMLElement
   target.style.opacity = '1'
+  target.classList.remove('ring-2', 'ring-blue-400', 'scale-[1.02]')
 }
 
 const handleDragOver = (event: DragEvent, file: FileEntry) => {
@@ -977,6 +1041,45 @@ const handleFileDrop = async (event: DragEvent, targetFolder: FileEntry) => {
     return
   }
   
+  await moveFile(draggedFile.value, targetFolder)
+  draggedFile.value = null
+}
+
+// Breadcrumb Drag & Drop Handlers
+const handleBreadcrumbDragOver = (event: DragEvent) => {
+  if (!draggedFile.value) return
+  const target = event.currentTarget as HTMLElement
+  target.classList.add('bg-blue-100', 'text-blue-600', 'dark:bg-blue-900/40', 'dark:text-blue-400')
+  if (event.dataTransfer) {
+     event.dataTransfer.dropEffect = 'move'
+  }
+}
+
+const handleBreadcrumbDragLeave = (event: DragEvent) => {
+  const target = event.currentTarget as HTMLElement
+  target.classList.remove('bg-blue-100', 'text-blue-600', 'dark:bg-blue-900/40', 'dark:text-blue-400')
+}
+
+const handleBreadcrumbDrop = async (event: DragEvent, crumb: { name: string; path: string; isVirtual: boolean }) => {
+  const target = event.currentTarget as HTMLElement
+  target.classList.remove('bg-blue-100', 'text-blue-600', 'dark:bg-blue-900/40', 'dark:text-blue-400')
+  
+  if (!draggedFile.value) return
+
+  // Create a pseudo-folder entry for the move logic
+  const targetFolder = {
+      id: crumb.path === '/' ? 'root' : `vf-${crumb.name}`,
+      name: crumb.name,
+      path: crumb.path,
+      type: 'folder' as const,
+      isVirtual: crumb.isVirtual,
+      // dummies
+      size: 0,
+      modified: '',
+      extension: null,
+      accountId: ''
+  }
+
   await moveFile(draggedFile.value, targetFolder)
   draggedFile.value = null
 }
@@ -1280,11 +1383,12 @@ const navigateToVirtualFolder = (folderName: string) => {
 
 // Handle folder click - determines if it's a virtual or regular folder
 const handleFolderClick = (file: any) => {
-  if (file.isVirtual) {
-    // Virtual folder - navigate to virtual folder view
+  // Persistent folders (from virtual_folders table) or virtual folders (from tags)
+  // Both should navigate to virtual folder view
+  if (file.isVirtualFolder || file.isVirtual || file.isPersistent) {
     navigateToVirtualFolder(file.name)
-  } else {
-    // Regular Dropbox folder - navigate to path
+  } else if (file.type === 'folder') {
+    // Regular file system folder (e.g., from Dropbox) - navigate by path
     navigateToFolder(file.path)
   }
 }
@@ -1327,18 +1431,46 @@ const filteredFiles = computed(() => {
   
   const path = currentPath.value
   
-  // At root level, show:
-  // 1. Virtual folders as clickable folders
-  // 2. Files without virtual folder (or all files)
+  // At root level
   if (path === '/') {
-    // Get files WITHOUT a virtual folder (not organized yet)
-    const unorganizedFiles = data.value.filter(file => !file.virtualFolder)
+    // Separate persistent folders (from virtual_folders table) and regular items
+    const persistentFolders = data.value.filter((item: any) => item.isVirtualFolder === true)
+    const regularItems = data.value.filter((item: any) => !item.isVirtualFolder)
     
-    // Convert virtual folders to folder entries for display
+    // Get files without virtual folder tag (unorganized)
+    const rootFiles = regularItems.filter(file => !file.virtualFolder)
+    
+    // Get virtual folders (from tags) - for items with virtual_folder tag
     const vFolders = virtualFolders.value as any[]
     
-    // Combine virtual folders + unorganized files
-    return [...vFolders, ...unorganizedFiles]
+    // Merge persistent folders with virtual folder counts
+    const mergedMap = new Map<string, any>()
+    
+    // Add persistent folders first
+    persistentFolders.forEach((folder: any) => {
+        mergedMap.set(folder.name, { 
+            ...folder, 
+            fileCount: 0,
+            isVirtual: false
+        })
+    })
+    
+    // Update with virtual folder file counts
+    vFolders.forEach(vf => {
+        if (mergedMap.has(vf.name)) {
+            const existing = mergedMap.get(vf.name)
+            existing.fileCount = vf.fileCount
+            existing.isVirtual = true // Has files inside
+        } else {
+            // Legacy virtual-only folder (tag exists but no persistent record)
+            mergedMap.set(vf.name, vf)
+        }
+    })
+    
+    const folderList = Array.from(mergedMap.values())
+    const fileList = rootFiles.filter(f => f.type !== 'folder')
+    
+    return [...folderList, ...fileList]
   }
   
   // For Dropbox subfolders, show direct children only
@@ -1376,8 +1508,7 @@ const createFolder = async () => {
     const response = await $fetch<{ success: boolean, folder: any }>('/api/folder/create', {
       method: 'POST',
       body: {
-        name: newFolderName.value,
-        parentPath: currentPath.value
+        name: newFolderName.value
       },
       headers: session?.access_token ? { Authorization: `Bearer ${session.access_token}` } : {}
     })
@@ -2209,5 +2340,41 @@ const isImageFile = (ext: string | null): boolean => {
 const isAudioFile = (ext: string | null): boolean => {
   if (!ext) return false
   return ['mp3', 'wav', 'flac', 'aac', 'ogg', 'm4a', 'wma'].includes(ext.toLowerCase())
+}
+
+// Expiry Helpers
+const getExpiryColor = (dateStr: string): string => {
+  const now = new Date()
+  const expiry = new Date(dateStr)
+  const diffTime = expiry.getTime() - now.getTime()
+  const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24))
+  
+  if (diffDays <= 3) return 'text-red-500 font-semibold'
+  if (diffDays <= 7) return 'text-orange-500'
+  return 'text-muted-foreground'
+}
+
+const getExpiryDistance = (dateStr: string | null): string => {
+   if (!dateStr) return '';
+   const now = new Date();
+   const expiry = new Date(dateStr);
+   const diffTime = expiry.getTime() - now.getTime();
+   const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24)); 
+   
+   if (diffDays < 0) return 'Expired';
+   if (diffDays === 0) return 'Expires today';
+   if (diffDays === 1) return 'Expires tomorrow';
+   return `${diffDays} days left`;
+}
+
+// Row Click Handler (Unified)
+const onRowClick = (file: FileEntry) => {
+  // If we just finished a long press interaction (and kept mouse down), ignore click?
+  // But typically standard click is fine.
+  if (file.type === 'folder') {
+    handleFolderClick(file)
+  } else {
+    openPreview(file)
+  }
 }
 </script>

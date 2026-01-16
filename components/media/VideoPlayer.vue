@@ -344,8 +344,8 @@ const seek = (value: number[]) => {
     resetControlsTimer()
 }
 
-const changeVolume = (value: number[]) => {
-    if (!player.value) return
+const changeVolume = (value: number[] | undefined) => {
+    if (!player.value || !value) return
     player.value.volume(value[0])
     if (value[0] > 0 && isMuted.value) player.value.muted(false)
     resetControlsTimer()
@@ -846,11 +846,11 @@ onBeforeUnmount(() => window.removeEventListener('keydown', handleKeydown))
                                 <Volume2 v-else class="w-5 h-5" />
                             </button>
                             <div class="w-0 overflow-hidden group-hover/vol:w-24 transition-all duration-300 ease-out">
-                                <SliderRoot :modelValue="[isMuted ? 0 : volume]" :max="1" :step="0.01" class="relative flex items-center select-none touch-none w-20 h-5 cursor-pointer ml-2" @valueCommit="changeVolume">
+                                <SliderRoot :modelValue="[isMuted ? 0 : volume]" :max="1" :step="0.01" class="relative flex items-center select-none touch-none w-20 h-5 cursor-pointer ml-2" @update:modelValue="changeVolume">
                                     <SliderTrack class="bg-white/20 relative grow rounded-full h-[3px]">
                                         <SliderRange class="absolute bg-white rounded-full h-full" />
                                     </SliderTrack>
-                                    <SliderThumb class="block w-3 h-3 bg-white shadow rounded-full" />
+                                    <SliderThumb class="block w-3 h-3 bg-white shadow rounded-full focus:outline-none focus:ring-2 focus:ring-white/50" />
                                 </SliderRoot>
                             </div>
                         </div>
