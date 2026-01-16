@@ -1,7 +1,11 @@
 import { getAccounts } from '../../utils/accounts'
 import { useSupabase } from '../../utils/supabase'
+import { requireAdmin } from '../../utils/permissions'
 
 export default defineEventHandler(async (event) => {
+    // SECURITY: Only admins can view dashboard
+    await requireAdmin(event)
+
     try {
         const { getClientForAccount } = useDropboxServer()
         const accounts = await getAccounts()

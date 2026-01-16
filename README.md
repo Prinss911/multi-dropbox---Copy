@@ -86,6 +86,32 @@ Aplikasi web modern untuk mengelola multiple akun Dropbox dengan fitur file shar
 - `/_nuxt/` route warnings - Normal Vite development behavior, ignored in production
 - `Symbol(route location)` warnings - May appear during HMR, does not affect functionality
 
+## 🔒 Security
+
+### API Authorization
+All sensitive API endpoints are protected with role-based authorization:
+
+| Endpoint Category | Protection | Description |
+|------------------|------------|-------------|
+| `/api/accounts/*` | Admin Only | Dropbox account management |
+| `/api/admin/*` | Admin Only | Dashboard, shares, cleanup |
+| `/api/dropbox/delete` | Admin Only | File deletion operations |
+| `/api/dropbox/trash` | Admin Only | Trash management |
+| `/api/shares/[id].delete` | Owner/Admin | Share link deletion |
+| `/api/user/[id].delete` | Admin Only | User deletion |
+
+### Public Endpoints (Intentional)
+These endpoints are public by design for sharing functionality:
+- `/api/shares/[id]/download` - Public file download links
+- `/api/shares/[id]/stream` - Public file streaming
+- `/api/anonymous/*` - Anonymous file upload
+
+### Authentication Flow
+1. Supabase Auth handles user authentication
+2. `permissions.ts` helper validates user roles
+3. `requireAdmin` / `requireUser` middleware enforces access control
+4. Client-side middleware protects routes via `auth.global.ts`
+
 ## 🚀 Setup
 
 ### 1. Prerequisites

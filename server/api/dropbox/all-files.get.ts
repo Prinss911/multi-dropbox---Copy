@@ -1,5 +1,6 @@
 import type { files } from 'dropbox'
 import { getAccounts } from '../../utils/accounts'
+import { requireAdmin } from '../../utils/permissions'
 
 interface FileEntry {
     id: string
@@ -81,6 +82,9 @@ async function getAllFilesRecursive(
 }
 
 export default defineEventHandler(async (event) => {
+    // SECURITY: Only admins can view all files
+    await requireAdmin(event)
+
     try {
         const { getClientForAccount } = useDropboxServer()
         const accounts = await getAccounts()

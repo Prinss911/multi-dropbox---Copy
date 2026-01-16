@@ -74,6 +74,35 @@ docs: update README with new features
 - Pastikan tidak ada TypeScript errors
 - Pastikan halaman load tanpa SSR errors
 
+## 🔒 Security Guidelines
+
+### API Endpoint Security
+Semua API endpoint sensitif **HARUS** memiliki authorization check:
+
+```typescript
+// Admin-only endpoints
+import { requireAdmin } from '../../utils/permissions'
+
+export default defineEventHandler(async (event) => {
+    await requireAdmin(event) // WAJIB untuk sensitive endpoints
+    // ... handler logic
+})
+
+// User-authenticated endpoints  
+import { requireUser } from '../../utils/permissions'
+
+export default defineEventHandler(async (event) => {
+    const user = await requireUser(event) // Returns user or throws 401
+    // ... handler logic
+})
+```
+
+### Checklist Sebelum PR
+- [ ] Semua API endpoint sensitif memiliki `requireAdmin` atau `requireUser`
+- [ ] Tidak ada hardcoded secrets di code
+- [ ] Environment variables digunakan untuk credentials
+- [ ] Input user di-validate sebelum digunakan
+
 ## 🔧 Common Issues
 
 ### Development Warnings

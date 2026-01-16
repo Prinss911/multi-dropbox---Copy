@@ -9,6 +9,23 @@ All notable changes to this project will be documented in this file.
 - **Service Worker stub** - Added `public/sw.js` to prevent browser 404 warnings
 - **Trash page info message** - Added informational message about Dropbox Personal Account limitations
 
+### Security 🔒
+
+#### API Authorization Hardening
+- **Added `requireAdmin` protection** to all sensitive API endpoints:
+  - `/api/accounts/add.post.ts` - Only admins can add Dropbox accounts
+  - `/api/accounts/index.get.ts` - Only admins can list accounts
+  - `/api/admin/dashboard.get.ts` - Only admins can view dashboard
+  - `/api/admin/shares.get.ts` - Only admins can view all shares
+  - `/api/admin/cleanup.post.ts` - Only admins can run cleanup
+  - `/api/dropbox/all-files.get.ts` - Only admins can view all files
+  - `/api/dropbox/delete.post.ts` - Only admins can delete files
+  - `/api/dropbox/bulk-delete.post.ts` - Only admins can bulk delete
+  - `/api/dropbox/permanent-delete.post.ts` - Only admins can permanently delete
+  - `/api/dropbox/restore.post.ts` - Only admins can restore files
+  - `/api/dropbox/trash.get.ts` - Only admins can view trash
+- **Leveraged existing `permissions.ts`** helper functions for consistent authorization
+
 ### Fixed
 
 #### Authentication & Middleware

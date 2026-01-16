@@ -1,6 +1,10 @@
 import { getAccounts, getActiveAccount } from '../../utils/accounts'
+import { requireAdmin } from '../../utils/permissions'
 
 export default defineEventHandler(async (event) => {
+    // SECURITY: Only admins can view Dropbox accounts
+    await requireAdmin(event)
+
     const accounts = await getAccounts()
     const activeAccount = await getActiveAccount()
 

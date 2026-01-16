@@ -1,6 +1,10 @@
 import { useSupabase } from '../../utils/supabase'
+import { requireAdmin } from '../../utils/permissions'
 
 export default defineEventHandler(async (event) => {
+    // SECURITY: Only admins can view all shares
+    await requireAdmin(event)
+
     try {
         const supabase = useSupabase()
 

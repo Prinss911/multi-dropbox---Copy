@@ -109,6 +109,54 @@ Delete manually via [Dropbox.com](https://www.dropbox.com/deleted_files)
 
 ---
 
+## 🔒 Security Issues
+
+### API Returns 403 Forbidden
+
+**Cause:** User doesn't have required permission
+
+**Solution:**
+1. Check if user is logged in
+2. Verify user role in database (`profiles.role`)
+3. Ensure endpoint uses correct middleware:
+
+```typescript
+// For admin-only endpoints
+import { requireAdmin } from '../../utils/permissions'
+
+export default defineEventHandler(async (event) => {
+    await requireAdmin(event) // Throws 403 if not admin
+    // ... rest of handler
+})
+```
+
+### API Returns 401 Unauthorized
+
+**Cause:** User is not authenticated
+
+**Solution:**
+1. Check if session token is valid
+2. Verify user is logged in on client
+3. Use `requireUser` for authenticated endpoints:
+
+```typescript
+import { requireUser } from '../../utils/permissions'
+
+export default defineEventHandler(async (event) => {
+    const user = await requireUser(event)
+    // ... rest of handler
+})
+```
+
+### Endpoints Protected by Default
+
+All sensitive endpoints should use `requireAdmin`:
+- `/api/accounts/*` - Dropbox account management
+- `/api/admin/*` - Admin dashboard, shares, cleanup
+- `/api/dropbox/delete`, `bulk-delete`, `trash`, `restore`
+
+---
+
 ## ⚠️ Development Warnings
 
 ### `/_nuxt/` Route Warnings

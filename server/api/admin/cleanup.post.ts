@@ -1,4 +1,5 @@
 import { useSupabase } from '../../utils/supabase'
+import { requireAdmin } from '../../utils/permissions'
 
 interface CleanupResult {
     filesRemoved: number
@@ -7,6 +8,9 @@ interface CleanupResult {
 }
 
 export default defineEventHandler(async (event) => {
+    // SECURITY: Only admins can run cleanup
+    await requireAdmin(event)
+
     try {
         const { getActiveClient, getClientForAccount } = useDropboxServer()
         const supabase = useSupabase()

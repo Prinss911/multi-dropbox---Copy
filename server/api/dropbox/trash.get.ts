@@ -1,6 +1,10 @@
 import type { files } from 'dropbox'
+import { requireAdmin } from '../../utils/permissions'
 
 export default defineEventHandler(async (event) => {
+    // SECURITY: Only admins can view trash
+    await requireAdmin(event)
+
     try {
         const query = getQuery(event)
         const accountId = query.accountId as string | undefined

@@ -1,8 +1,12 @@
 
 import { addAccount, getAccounts, setActiveAccount, getAccountById } from '../../utils/accounts'
 import { createDropboxClient } from '../../utils/dropbox'
+import { requireAdmin } from '../../utils/permissions'
 
 export default defineEventHandler(async (event) => {
+    // SECURITY: Only admins can add Dropbox accounts
+    await requireAdmin(event)
+
     const body = await readBody(event)
     const { code, name, appKey, appSecret } = body
     const config = useRuntimeConfig()

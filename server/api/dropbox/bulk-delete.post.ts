@@ -1,4 +1,9 @@
+import { requireAdmin } from '../../utils/permissions'
+
 export default defineEventHandler(async (event) => {
+    // SECURITY: Only admins can bulk delete files
+    await requireAdmin(event)
+
     const body = await readBody(event)
     const { paths, accountId } = body
 
