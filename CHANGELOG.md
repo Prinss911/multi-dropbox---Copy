@@ -6,6 +6,12 @@ All notable changes to this project will be documented in this file.
 
 ### Added
 
+#### UI/UX Improvements & Cache Busting 🎨
+- **Floating Bulk Action Bar** - New `FloatingActionBar` component for consistent bulk actions across user and admin pages
+- **Improved Styling** - Better color contrast for delete actions (red background/text) and standardized button styles
+- **Cache Busting** - Implemented automatic asset hashing (`[name].[hash].js`) in build config to prevent browser caching issues
+- **Build Metadata** - Added `application-version` and `application-build-time` meta tags for better deployment tracking
+
 #### Bulk User Invitation 📧
 - **Multi-email input** - Invite multiple users at once with textarea input
 - **Smart parsing** - Supports comma, semicolon, or newline-separated emails

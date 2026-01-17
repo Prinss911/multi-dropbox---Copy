@@ -1,6 +1,16 @@
+import pkg from './package.json'
+
 // https://nuxt.com/docs/api/configuration/nuxt-config
 export default defineNuxtConfig({
   compatibilityDate: '2024-11-01',
+  app: {
+    head: {
+      meta: [
+        { name: 'application-version', content: pkg.version },
+        { name: 'application-build-time', content: new Date().toISOString() }
+      ]
+    }
+  },
   devtools: {
     enabled: true,
     timeline: {
@@ -37,6 +47,15 @@ export default defineNuxtConfig({
   vite: {
     server: {
       allowedHosts: true
+    },
+    build: {
+      rollupOptions: {
+        output: {
+          entryFileNames: '_nuxt/[name].[hash].js',
+          chunkFileNames: '_nuxt/[name].[hash].js',
+          assetFileNames: '_nuxt/[name].[hash][extname]'
+        }
+      }
     }
   },
 
