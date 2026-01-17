@@ -9,15 +9,24 @@ export default defineNuxtRouteMiddleware(async (to, from) => {
 
     const { user, isAdmin, fetchRole, role } = useAuth()
 
+    // Get the auth-ready state
+    const isAuthReady = useState<boolean>('auth-ready', () => false)
+
     console.log('[Middleware] Route:', to.path, '| User:', user.value?.email || 'none', '| Role:', role.value)
 
     // Public routes (Login, Invite Confirm, Anonymous Upload, Public Downloads, Embed Player)
     const publicRoutes = ['/login', '/auth/confirm', '/upload', '/drive/upload', '/access-denied', '/download', '/file', '/embed']
     const isPublic = publicRoutes.some(path => to.path.startsWith(path))
 
+    // For public routes, mark auth as ready immediately
+    if (isPublic) {
+        isAuthReady.value = true
+    }
+
     // No user and not public route - redirect to login
     if (!user.value && !isPublic) {
         console.log('[Middleware] No user, not public route -> /login')
+        isAuthReady.value = true // Mark ready before redirect
         return navigateTo('/login')
     }
 
@@ -34,6 +43,7 @@ export default defineNuxtRouteMiddleware(async (to, from) => {
     if (isAdminRoute) {
         if (!user.value) {
             console.log('[Middleware] Admin route, no user -> /login')
+            isAuthReady.value = true
             return navigateTo('/login')
         }
 
@@ -49,9 +59,13 @@ export default defineNuxtRouteMiddleware(async (to, from) => {
 
         if (role.value !== 'admin') {
             console.log('[Middleware] Not admin, access denied for:', to.path)
+            isAuthReady.value = true
             return navigateTo('/access-denied')
         }
     }
+
+    // Mark auth as ready - all checks passed
+    isAuthReady.value = true
 
     // All other authenticated routes are accessible by any logged-in user
     console.log('[Middleware] Access granted to:', to.path)

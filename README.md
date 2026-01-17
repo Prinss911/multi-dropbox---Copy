@@ -8,8 +8,10 @@ Aplikasi web modern untuk mengelola multiple akun Dropbox dengan fitur file shar
 - ✅ Supabase Auth dengan email/password
 - ✅ Role-based access (Admin & User)
 - ✅ Admin dashboard dengan user invitation
+- ✅ **Bulk User Invitation** - Invite multiple users at once with progress tracking
 - ✅ Session management & auto-refresh
 - ✅ Protected routes dengan middleware
+- ✅ **Auth Loading Guard** - No flash of protected content before login
 
 ### 📁 File Management
 - ✅ Browse files & folders dengan navigasi breadcrumb
@@ -81,6 +83,7 @@ Aplikasi web modern untuk mengelola multiple akun Dropbox dengan fitur file shar
 - ✅ Top downloaded files
 - ✅ Recent shares activity
 - ✅ User management (invite, list, role change)
+- ✅ **Bulk User Invitation** - Add multiple emails at once (comma/newline separated)
 - ✅ Bulk operations di semua halaman admin
 
 ### ⚙️ Account Management

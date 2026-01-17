@@ -160,33 +160,70 @@
           </div>
           
           <div class="p-6 space-y-4">
-             <!-- Name (Only edit) -->
-             <div v-if="editingUser" class="space-y-1.5">
-                <label class="text-xs font-semibold uppercase text-muted-foreground">Full Name</label>
-                <input 
-                   v-model="formData.name" 
-                   placeholder="John Doe"
-                   class="w-full h-10 px-3 rounded-lg border bg-background focus:ring-2 focus:ring-[#0061FE]/20 focus:border-[#0061FE] transition-all text-sm"
-                />
-             </div>
+              <!-- Name (Only edit) -->
+              <div v-if="editingUser" class="space-y-1.5">
+                 <label class="text-xs font-semibold uppercase text-muted-foreground">Full Name</label>
+                 <input 
+                    v-model="formData.name" 
+                    placeholder="John Doe"
+                    class="w-full h-10 px-3 rounded-lg border bg-background focus:ring-2 focus:ring-[#0061FE]/20 focus:border-[#0061FE] transition-all text-sm"
+                 />
+              </div>
 
-             <!-- Email -->
-             <div class="space-y-1.5">
-                <label class="text-xs font-semibold uppercase text-muted-foreground">Email Address</label>
-                <div class="relative">
-                   <Icon name="lucide:mail" class="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                   <input 
-                      v-model="formData.email" 
-                      type="email"
-                      placeholder="colleague@example.com"
-                      :disabled="!!editingUser"
-                      class="w-full h-10 pl-9 pr-3 rounded-lg border bg-background focus:ring-2 focus:ring-[#0061FE]/20 focus:border-[#0061FE] transition-all text-sm disabled:opacity-60 disabled:bg-muted/50"
-                   />
-                </div>
-                <p v-if="!editingUser" class="text-xs text-muted-foreground mt-1">
-                   We'll send an invitation link to this email.
-                </p>
-             </div>
+              <!-- Email(s) -->
+              <div class="space-y-1.5">
+                 <label class="text-xs font-semibold uppercase text-muted-foreground">
+                    {{ editingUser ? 'Email Address' : 'Email Address(es)' }}
+                 </label>
+                 <!-- Single input for edit mode -->
+                 <div v-if="editingUser" class="relative">
+                    <Icon name="lucide:mail" class="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                    <input 
+                       v-model="formData.email" 
+                       type="email"
+                       placeholder="colleague@example.com"
+                       disabled
+                       class="w-full h-10 pl-9 pr-3 rounded-lg border bg-background focus:ring-2 focus:ring-[#0061FE]/20 focus:border-[#0061FE] transition-all text-sm disabled:opacity-60 disabled:bg-muted/50"
+                    />
+                 </div>
+                 <!-- Textarea for bulk invite -->
+                 <div v-else class="relative">
+                    <Icon name="lucide:mail" class="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
+                    <textarea 
+                       v-model="formData.emails" 
+                       placeholder="user1@example.com, user2@example.com&#10;user3@example.com"
+                       rows="4"
+                       class="w-full pl-9 pr-3 py-2 rounded-lg border bg-background focus:ring-2 focus:ring-[#0061FE]/20 focus:border-[#0061FE] transition-all text-sm resize-none"
+                    ></textarea>
+                 </div>
+                 <p v-if="!editingUser" class="text-xs text-muted-foreground mt-1">
+                    <Icon name="lucide:info" class="inline h-3 w-3 mr-1" />
+                    Enter multiple emails separated by comma, semicolon, or new line.
+                 </p>
+                 <!-- Parsed emails preview -->
+                 <div v-if="!editingUser && parsedEmails.length > 0" class="mt-2">
+                    <div class="flex items-center gap-2 mb-2">
+                       <span class="text-xs font-medium text-muted-foreground">{{ parsedEmails.length }} email(s) detected:</span>
+                       <span v-if="invalidEmails.length > 0" class="text-xs text-red-500">({{ invalidEmails.length }} invalid)</span>
+                    </div>
+                    <div class="flex flex-wrap gap-1.5 max-h-20 overflow-y-auto">
+                       <span 
+                          v-for="(email, idx) in parsedEmails.slice(0, 10)" 
+                          :key="idx"
+                          class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium"
+                          :class="isValidEmail(email) 
+                             ? 'bg-blue-50 text-blue-700 dark:bg-blue-500/20 dark:text-blue-400' 
+                             : 'bg-red-50 text-red-700 dark:bg-red-500/20 dark:text-red-400'"
+                       >
+                          <Icon :name="isValidEmail(email) ? 'lucide:check' : 'lucide:x'" class="h-3 w-3" />
+                          {{ email }}
+                       </span>
+                       <span v-if="parsedEmails.length > 10" class="text-xs text-muted-foreground px-2">
+                          +{{ parsedEmails.length - 10 }} more
+                       </span>
+                    </div>
+                 </div>
+              </div>
 
              <div class="grid grid-cols-2 gap-4">
                 <div class="space-y-1.5">
@@ -219,16 +256,69 @@
                 </div>
              </div>
              
-             <div class="pt-2">
-                <button 
-                  @click="saveUser"
-                  :disabled="isLoading"
-                  class="w-full h-11 rounded-lg bg-[#0061FE] hover:bg-[#0057E5] text-white font-semibold text-sm shadow-sm transition-all flex items-center justify-center gap-2 disabled:opacity-70"
-               >
-                  <Icon v-if="isLoading" name="lucide:loader-2" class="h-5 w-5 animate-spin" />
-                  <span v-else>{{ editingUser ? 'Save Changes' : 'Send Invitation' }}</span>
-               </button>
-             </div>
+              <!-- Bulk Invite Progress -->
+              <div v-if="bulkInviteProgress.total > 0" class="space-y-3 p-4 bg-muted/30 rounded-lg">
+                 <div class="flex items-center justify-between text-sm">
+                    <span class="font-medium">Sending invitations...</span>
+                    <span class="font-mono text-muted-foreground">{{ bulkInviteProgress.current }}/{{ bulkInviteProgress.total }}</span>
+                 </div>
+                 <div class="w-full bg-muted rounded-full h-2 overflow-hidden">
+                    <div 
+                       class="h-full bg-[#0061FE] transition-all duration-300"
+                       :style="{ width: `${(bulkInviteProgress.current / bulkInviteProgress.total) * 100}%` }"
+                    ></div>
+                 </div>
+                 <div v-if="bulkInviteProgress.results.length > 0" class="space-y-1 max-h-32 overflow-y-auto text-xs">
+                    <div 
+                       v-for="(result, idx) in bulkInviteProgress.results" 
+                       :key="idx"
+                       class="flex items-center gap-2 py-1"
+                       :class="result.success ? 'text-green-600' : 'text-red-500'"
+                    >
+                       <Icon :name="result.success ? 'lucide:check-circle' : 'lucide:x-circle'" class="h-3.5 w-3.5 shrink-0" />
+                       <span class="truncate">{{ result.email }}</span>
+                       <span v-if="!result.success" class="text-muted-foreground truncate">- {{ result.error }}</span>
+                    </div>
+                 </div>
+              </div>
+
+              <!-- Bulk Invite Summary (after completion) -->
+              <div v-else-if="bulkInviteSummary" class="p-4 rounded-lg" :class="bulkInviteSummary.failed === 0 ? 'bg-green-50 dark:bg-green-500/10' : 'bg-amber-50 dark:bg-amber-500/10'">
+                 <div class="flex items-center gap-3">
+                    <Icon 
+                       :name="bulkInviteSummary.failed === 0 ? 'lucide:check-circle-2' : 'lucide:alert-circle'" 
+                       class="h-8 w-8" 
+                       :class="bulkInviteSummary.failed === 0 ? 'text-green-600' : 'text-amber-600'" 
+                    />
+                    <div>
+                       <p class="font-semibold text-sm">
+                          {{ bulkInviteSummary.success }} invitation(s) sent successfully
+                       </p>
+                       <p v-if="bulkInviteSummary.failed > 0" class="text-xs text-muted-foreground">
+                          {{ bulkInviteSummary.failed }} failed
+                       </p>
+                    </div>
+                 </div>
+                 <button 
+                    @click="closeBulkSummary"
+                    class="mt-3 w-full h-9 rounded-lg border hover:bg-muted transition-colors text-sm font-medium"
+                 >
+                    Done
+                 </button>
+              </div>
+
+              <div v-else class="pt-2">
+                 <button 
+                   @click="saveUser"
+                   :disabled="isSaving || (!editingUser && validEmails.length === 0)"
+                   class="w-full h-11 rounded-lg bg-[#0061FE] hover:bg-[#0057E5] text-white font-semibold text-sm shadow-sm transition-all flex items-center justify-center gap-2 disabled:opacity-70 disabled:cursor-not-allowed"
+                >
+                   <Icon v-if="isSaving" name="lucide:loader-2" class="h-5 w-5 animate-spin" />
+                   <span v-else>
+                      {{ editingUser ? 'Save Changes' : (validEmails.length > 1 ? `Send ${validEmails.length} Invitations` : 'Send Invitation') }}
+                   </span>
+                </button>
+              </div>
           </div>
         </div>
       </div>
@@ -346,12 +436,52 @@ const users = computed(() => rawProfiles.value)
 
 const isModalOpen = ref(false)
 const editingUser = ref<any>(null)
+const isSaving = ref(false)
 const formData = reactive({
   name: '',
   email: '',
+  emails: '', // For bulk invite
   role: 'user',
   status: 'Active'
 })
+
+// Bulk invite progress tracking
+const bulkInviteProgress = reactive({
+  total: 0,
+  current: 0,
+  results: [] as { email: string; success: boolean; error?: string }[]
+})
+
+const bulkInviteSummary = ref<{ success: number; failed: number } | null>(null)
+
+// Email validation and parsing
+const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
+
+const isValidEmail = (email: string): boolean => {
+  return emailRegex.test(email.trim())
+}
+
+const parsedEmails = computed(() => {
+  if (!formData.emails.trim()) return []
+  // Split by comma, semicolon, or newline
+  return formData.emails
+    .split(/[,;\n]+/)
+    .map(e => e.trim())
+    .filter(e => e.length > 0)
+})
+
+const validEmails = computed(() => {
+  return parsedEmails.value.filter(isValidEmail)
+})
+
+const invalidEmails = computed(() => {
+  return parsedEmails.value.filter(e => !isValidEmail(e))
+})
+
+const closeBulkSummary = () => {
+  bulkInviteSummary.value = null
+  isModalOpen.value = false
+}
 
 // Fetch on mount
 onMounted(() => {
@@ -387,18 +517,23 @@ const openModal = (user: any = null) => {
     // Invite defaults
     formData.name = ''
     formData.email = ''
+    formData.emails = ''
     formData.role = 'user'
-    formData.status = 'Invited' 
+    formData.status = 'Invited'
+    // Reset bulk invite state
+    bulkInviteProgress.total = 0
+    bulkInviteProgress.current = 0
+    bulkInviteProgress.results = []
+    bulkInviteSummary.value = null
   }
   isModalOpen.value = true
 }
 
 const saveUser = async () => {
-  isLoading.value = true
+  isSaving.value = true
   try {
     if (editingUser.value) {
       // Update existing
-      // Update Profile (Name & Role)
       const { error } = await client
         .from('profiles')
         .update({ 
@@ -408,30 +543,64 @@ const saveUser = async () => {
         .eq('id', editingUser.value.id)
       
       if (error) throw error
+      isModalOpen.value = false
+      await fetchUsers()
 
     } else {
-      // Invite New User
-      const response = await authFetch('/api/auth/invite', {
-        method: 'POST',
-        body: {
-            email: formData.email,
-            role: formData.role.toLowerCase()
-        }
-      })
+      // Bulk Invite New Users
+      const emailsToInvite = validEmails.value
       
-      if (response.link) {
-          alert(`Invitation sent! \n\nIMPORTANT: Use this link if the email doesn't arrive:\n${response.link}`)
-      } else {
-          alert('Invitation sent! Please check your email inbox.')
+      if (emailsToInvite.length === 0) {
+        alert('Please enter at least one valid email address')
+        return
       }
+
+      // Reset progress
+      bulkInviteProgress.total = emailsToInvite.length
+      bulkInviteProgress.current = 0
+      bulkInviteProgress.results = []
+
+      let successCount = 0
+      let failCount = 0
+
+      // Send invites one by one
+      for (const email of emailsToInvite) {
+        try {
+          await authFetch('/api/auth/invite', {
+            method: 'POST',
+            body: {
+              email: email,
+              role: formData.role.toLowerCase()
+            }
+          })
+          bulkInviteProgress.results.push({ email, success: true })
+          successCount++
+        } catch (err: any) {
+          bulkInviteProgress.results.push({ 
+            email, 
+            success: false, 
+            error: err.data?.message || err.message || 'Failed' 
+          })
+          failCount++
+        }
+        bulkInviteProgress.current++
+        // Small delay to avoid rate limiting
+        await new Promise(resolve => setTimeout(resolve, 200))
+      }
+
+      // Show summary
+      bulkInviteProgress.total = 0 // Hide progress
+      bulkInviteSummary.value = {
+        success: successCount,
+        failed: failCount
+      }
+
+      await fetchUsers() // Refresh list
     }
-    
-    isModalOpen.value = false
-    await fetchUsers() // Refresh list
   } catch (err: any) {
     alert(err.message || 'Operation failed')
   } finally {
-    isLoading.value = false
+    isSaving.value = false
   }
 }
 

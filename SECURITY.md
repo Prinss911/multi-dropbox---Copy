@@ -4,7 +4,11 @@
 
 | Version | Supported          |
 | ------- | ------------------ |
-| 1.1.x   | :white_check_mark: |
+| 1.5.x   | :white_check_mark: |
+| 1.4.x   | :white_check_mark: |
+| 1.3.x   | :white_check_mark: |
+| 1.2.x   | :x:                |
+| 1.1.x   | :x:                |
 | 1.0.x   | :x:                |
 
 ## 🛡️ Security Features
@@ -13,6 +17,7 @@
 - **Supabase Auth** - Email/password authentication with session management
 - **JWT Token Verification** - All API requests verify JWT tokens
 - **Role-Based Access Control** - Admin and User roles with different permissions
+- **Anti-Flash Protection** - Protected pages show loading state until auth is verified (no content leak)
 
 ### API Authorization
 All sensitive API endpoints are protected with role-based middleware:

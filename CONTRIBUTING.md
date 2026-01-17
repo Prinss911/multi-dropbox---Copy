@@ -121,6 +121,20 @@ export default defineEventHandler(async (event) => {
 - **Redirect to login on refresh** - Check `waitForAuthInit()` is awaited in middleware
 - **Role not detected** - Ensure `fetchRole()` completes before admin checks
 
+### Async State Updates
+- **"Cannot set properties of null"** - Component unmounted before async completed
+  - Solution: Add `isMounted` ref and check before updating state
+  - Always cleanup watchers in `onBeforeUnmount`
+  ```typescript
+  const isMounted = ref(true)
+  onBeforeUnmount(() => { isMounted.value = false })
+  
+  // In async function:
+  if (isMounted.value) {
+    data.value = result
+  }
+  ```
+
 ### Quick Fixes
 ```bash
 # Clear cache and rebuild

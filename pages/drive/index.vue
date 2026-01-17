@@ -314,9 +314,16 @@ const data = ref<DashboardData | null>(null)
 const pending = ref(false)
 const error = ref<Error | null>(null)
 
+// Flag to prevent updates after unmount (fixes "Cannot set properties of null" error)
+const isMounted = ref(true)
+
+onBeforeUnmount(() => {
+  isMounted.value = false
+})
+
 // Fetch dashboard only when admin
 const fetchDashboard = async () => {
-  if (!isAdmin.value) return
+  if (!isAdmin.value || !isMounted.value) return
   
   pending.value = true
   error.value = null
@@ -332,20 +339,32 @@ const fetchDashboard = async () => {
         Authorization: `Bearer ${session.access_token}`
       }
     })
-    data.value = result
+    
+    // Only update state if component is still mounted
+    if (isMounted.value) {
+      data.value = result
+    }
   } catch (err: any) {
     console.error('Dashboard fetch error:', err)
-    error.value = err
+    if (isMounted.value) {
+      error.value = err
+    }
   } finally {
-    pending.value = false
+    if (isMounted.value) {
+      pending.value = false
+    }
   }
 }
 
 const refresh = () => fetchDashboard()
 
 // Only fetch when confirmed admin
+let stopWatcher: (() => void) | null = null
+
 onMounted(() => {
-  watch(role, async (newRole) => {
+  stopWatcher = watch(role, async (newRole) => {
+    if (!isMounted.value) return
+    
     if (newRole === 'admin') {
       await fetchDashboard()
     } else if (newRole !== null) {
@@ -353,6 +372,12 @@ onMounted(() => {
       await navigateTo('/drive/files', { replace: true })
     }
   }, { immediate: true })
+})
+
+onBeforeUnmount(() => {
+  if (stopWatcher) {
+    stopWatcher()
+  }
 })
 
 const accountColors = ['#0061FE', '#0070E0', '#007EE5', '#248CF2', '#4D9BF7', '#76ABFC']

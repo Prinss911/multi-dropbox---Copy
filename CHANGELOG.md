@@ -2,6 +2,48 @@
 
 All notable changes to this project will be documented in this file.
 
+## [1.5.0] - 2026-01-17
+
+### Added
+
+#### Bulk User Invitation 📧
+- **Multi-email input** - Invite multiple users at once with textarea input
+- **Smart parsing** - Supports comma, semicolon, or newline-separated emails
+- **Real-time preview** - Shows detected emails as badges/chips while typing
+- **Validation feedback** - Invalid emails highlighted in red with X icon
+- **Progress tracking** - Progress bar shows invitation sending status
+- **Results summary** - Shows success/failure count after completion
+- **Dynamic button label** - "Send X Invitations" shows count of valid emails
+
+### Fixed
+
+#### Flash Content Issue 🔒
+- **Global loading state** - Added `app.vue` loading overlay during auth initialization
+- **No more flash** - Protected pages no longer flash before redirecting to login
+- **Auth-ready flag** - Middleware sets `auth-ready` state to control page visibility
+- **Public routes exempt** - Login, embed, and other public pages load immediately
+
+#### Vue DOM Error
+- **"Cannot set properties of null"** - Fixed by adding `isMounted` guard in dashboard
+- **Async cleanup** - Proper watcher cleanup in `onBeforeUnmount`
+- **State update guards** - All async state updates check if component is mounted
+- **Watcher disposal** - Stop watching role changes when component unmounts
+
+### Changed
+- **Invite modal** - Replaced single email input with bulk-capable textarea
+- **Auth flow** - Added global loading state for smoother authentication UX
+- **Dashboard fetch** - Added mount-guard to prevent post-unmount updates
+
+### Technical
+- Updated `pages/admin/users.vue` with bulk invite UI and logic
+- Updated `pages/drive/index.vue` with isMounted guards and watcher cleanup
+- Updated `middleware/auth.global.ts` to set auth-ready state
+- Created new `app.vue` with global loading overlay for auth initialization
+- Added `bulkInviteProgress` and `bulkInviteSummary` reactive state
+- Added email parsing utilities (`parsedEmails`, `validEmails`, `invalidEmails`)
+
+---
+
 ## [1.4.0] - 2026-01-16
 
 ### Added
