@@ -71,57 +71,33 @@
        <div class="w-full h-full">
 
         <!-- Floating Bulk Action Bar -->
-        <Transition
-          enter-active-class="transition-all duration-300 ease-out"
-          leave-active-class="transition-all duration-200 ease-in"
-          enter-from-class="opacity-0 translate-y-4"
-          leave-to-class="opacity-0 translate-y-4"
+        <FloatingActionBar
+          :selected-count="selectedIds.size"
+          :is-bulk-deleting="isBulkDeleting"
+          :show-download="false"
+          @clear="clearSelection"
+          @delete="showBulkDeleteModal = true"
         >
-          <div 
-            v-if="selectedIds.size > 0" 
-            class="fixed bottom-6 left-1/2 -translate-x-1/2 z-50 flex items-center gap-3 px-5 py-3 bg-[#1E1919] dark:bg-card rounded-full shadow-2xl border dark:border-border"
-          >
-            <!-- Selection Count -->
-            <div class="flex items-center gap-2 text-white dark:text-foreground">
-              <div class="h-7 w-7 rounded-full bg-blue-600 flex items-center justify-center text-sm font-bold">
-                {{ selectedIds.size }}
-              </div>
-              <span class="text-sm font-medium">selected</span>
-            </div>
-
-            <div class="w-px h-6 bg-white/20 dark:bg-border"></div>
-
-            <!-- Bulk Actions -->
+          <template #actions>
             <button 
               @click="handleBulkCopyLinks"
-              class="flex items-center gap-2 px-4 py-2 rounded-full bg-white/10 hover:bg-white/20 text-white text-sm font-medium transition-colors"
+              class="flex items-center gap-2 px-3 sm:px-4 py-1.5 sm:py-2 rounded-full bg-white/10 hover:bg-white/20 text-white dark:text-gray-200 text-xs sm:text-sm font-medium transition-colors border border-transparent"
             >
-              <Icon name="lucide:copy" class="h-4 w-4" />
+              <Icon name="lucide:copy" class="h-3.5 w-3.5 sm:h-4 sm:w-4" />
               <span class="hidden sm:inline">Copy Links</span>
             </button>
 
             <button 
               @click="showBulkDeleteModal = true"
               :disabled="isBulkDeleting"
-              class="flex items-center gap-2 px-4 py-2 rounded-full bg-red-500/20 hover:bg-red-500/30 text-red-400 text-sm font-medium transition-colors disabled:opacity-50"
+              class="flex items-center gap-2 px-3 sm:px-4 py-1.5 sm:py-2 rounded-full bg-red-500/20 hover:bg-red-500/30 text-red-400 text-xs sm:text-sm font-medium transition-colors disabled:opacity-50 border border-transparent"
             >
-              <Icon v-if="isBulkDeleting" name="lucide:loader-2" class="h-4 w-4 animate-spin" />
-              <Icon v-else name="lucide:trash-2" class="h-4 w-4" />
+              <Icon v-if="isBulkDeleting" name="lucide:loader-2" class="h-3.5 w-3.5 sm:h-4 sm:w-4 animate-spin" />
+              <Icon v-else name="lucide:trash-2" class="h-3.5 w-3.5 sm:h-4 sm:w-4" />
               <span class="hidden sm:inline">Delete</span>
             </button>
-
-            <div class="w-px h-6 bg-white/20 dark:bg-border"></div>
-
-            <!-- Clear Selection -->
-            <button 
-              @click="clearSelection"
-              class="p-2 rounded-full hover:bg-white/10 text-white/60 hover:text-white transition-colors"
-              title="Clear selection"
-            >
-              <Icon name="lucide:x" class="h-4 w-4" />
-            </button>
-          </div>
-        </Transition>
+          </template>
+        </FloatingActionBar>
 
         <!-- Loading -->
         <div v-if="pending" class="h-full flex flex-col items-center justify-center text-muted-foreground">
@@ -369,6 +345,8 @@
 </template>
 
 <script setup lang="ts">
+import FloatingActionBar from '~/components/drive/FloatingActionBar.vue'
+
 interface ShareLink {
   id: string
   fileId: string

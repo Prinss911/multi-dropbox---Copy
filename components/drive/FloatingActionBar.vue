@@ -20,25 +20,29 @@
       <div class="w-px h-5 sm:h-6 bg-gray-200 dark:bg-gray-700 shrink-0"></div>
 
       <!-- Bulk Actions -->
-      <button 
-        @click="$emit('download')"
-        :disabled="isBulkDownloading"
-        class="flex items-center gap-2 px-3 sm:px-4 py-1.5 sm:py-2 rounded-full bg-gray-100 hover:bg-gray-200 dark:bg-gray-800 dark:hover:bg-gray-700 text-gray-700 dark:text-gray-200 text-xs sm:text-sm font-medium transition-all disabled:opacity-50 shrink-0 active:scale-95"
-      >
-        <Icon v-if="isBulkDownloading" name="lucide:loader-2" class="h-3.5 w-3.5 sm:h-4 sm:w-4 animate-spin" />
-        <Icon v-else name="lucide:download" class="h-3.5 w-3.5 sm:h-4 sm:w-4" />
-        <span class="hidden sm:inline">Download</span>
-      </button>
+      <slot name="actions">
+        <button 
+          v-if="showDownload"
+          @click="$emit('download')"
+          :disabled="isBulkDownloading"
+          class="flex items-center gap-2 px-3 sm:px-4 py-1.5 sm:py-2 rounded-full bg-gray-100 hover:bg-gray-200 dark:bg-gray-800 dark:hover:bg-gray-700 text-gray-700 dark:text-gray-200 text-xs sm:text-sm font-medium transition-all disabled:opacity-50 shrink-0 active:scale-95"
+        >
+          <Icon v-if="isBulkDownloading" name="lucide:loader-2" class="h-3.5 w-3.5 sm:h-4 sm:w-4 animate-spin" />
+          <Icon v-else name="lucide:download" class="h-3.5 w-3.5 sm:h-4 sm:w-4" />
+          <span class="hidden sm:inline">Download</span>
+        </button>
 
-      <button 
-        @click="$emit('delete')"
-        :disabled="isBulkDeleting"
-        class="flex items-center gap-2 px-3 sm:px-4 py-1.5 sm:py-2 rounded-full bg-red-100 hover:bg-red-200 dark:bg-red-900/30 dark:hover:bg-red-900/50 text-red-700 dark:text-red-300 text-xs sm:text-sm font-medium transition-all disabled:opacity-50 shrink-0 active:scale-95 border border-transparent hover:border-red-200 dark:hover:border-red-800"
-      >
-        <Icon v-if="isBulkDeleting" name="lucide:loader-2" class="h-3.5 w-3.5 sm:h-4 sm:w-4 animate-spin" />
-        <Icon v-else name="lucide:trash-2" class="h-3.5 w-3.5 sm:h-4 sm:w-4" />
-        <span class="hidden sm:inline">Delete</span>
-      </button>
+        <button 
+          v-if="showDelete"
+          @click="$emit('delete')"
+          :disabled="isBulkDeleting"
+          class="flex items-center gap-2 px-3 sm:px-4 py-1.5 sm:py-2 rounded-full bg-red-100 hover:bg-red-200 dark:bg-red-900/30 dark:hover:bg-red-900/50 text-red-700 dark:text-red-300 text-xs sm:text-sm font-medium transition-all disabled:opacity-50 shrink-0 active:scale-95 border border-transparent hover:border-red-200 dark:hover:border-red-800"
+        >
+          <Icon v-if="isBulkDeleting" name="lucide:loader-2" class="h-3.5 w-3.5 sm:h-4 sm:w-4 animate-spin" />
+          <Icon v-else name="lucide:trash-2" class="h-3.5 w-3.5 sm:h-4 sm:w-4" />
+          <span class="hidden sm:inline">Delete</span>
+        </button>
+      </slot>
 
       <div class="w-px h-5 sm:h-6 bg-gray-200 dark:bg-gray-700 shrink-0"></div>
 
@@ -55,11 +59,16 @@
 </template>
 
 <script setup lang="ts">
-defineProps<{
+const props = withDefaults(defineProps<{
   selectedCount: number
-  isBulkDownloading: boolean
-  isBulkDeleting: boolean
-}>()
+  isBulkDownloading?: boolean
+  isBulkDeleting?: boolean
+  showDownload?: boolean
+  showDelete?: boolean
+}>(), {
+  showDownload: true,
+  showDelete: true
+})
 
 defineEmits<{
   (e: 'clear'): void
